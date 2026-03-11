@@ -1,0 +1,28 @@
+#pragma once
+
+#include <vector>
+#include <optional>
+#include "patient.hpp"
+
+namespace clinic {
+
+/**
+ * @brief Interface genérica para persistência de dados.
+ * Permite que troquemos o SQLite por outro banco ou mocks para testes facilmente.
+ */
+class IDatabase {
+public:
+    virtual ~IDatabase() = default;
+
+    virtual bool open(const std::string& db_path, const std::string& key) = 0;
+    virtual void close() = 0;
+
+    virtual bool add_patient(const Patient& p) = 0;
+    virtual std::optional<Patient> get_patient(int id) = 0;
+    virtual std::vector<Patient> get_all_patients() = 0;
+    virtual std::vector<Patient> search_patients(const std::string& query) = 0;
+    virtual bool update_patient(const Patient& p) = 0;
+    virtual bool delete_patient(int id) = 0;
+};
+
+} // namespace clinic

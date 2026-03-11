@@ -1,0 +1,45 @@
+# --- Build/Compilação ---
+backend/build/
+bin/
+lib/
+*.o
+*.a
+*.so
+*.exe
+*.out
+compile_commands.json
+
+# --- Banco de Dados e Segurança ---
+# NUNCA commite o arquivo de banco de dados real ou arquivos de teste
+*.db
+*.sqlite
+*.enc
+.env
+secret.key
+
+# --- LSP, IDEs e IAs ---
+.clangd
+.cache/
+.vscode/
+.idea/
+*.swp
+*.swo
+.gemini
+
+# --- Frontend (Node.js) ---
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Sistema e Outros ---
+.DS_Store
+Thumbs.db
+tmp/
+backups/
+
+# --- Dev Stuff
+BRIEFING.md
+STORIES.md
