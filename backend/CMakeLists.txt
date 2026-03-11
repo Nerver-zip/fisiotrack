@@ -62,7 +62,11 @@ target_link_libraries(fisio_track_server PRIVATE clinic_lib)
 
 # --- 4. Testes Unitários ---
 enable_testing()
-add_executable(unit_tests tests/test_patient_crud.cpp)
+add_executable(unit_tests 
+    tests/test_patient_crud.cpp
+    tests/test_patient_repository.cpp
+    tests/test_database_disk_integrity.cpp
+)
 target_link_libraries(unit_tests PRIVATE clinic_lib gtest_main)
 
 include(GoogleTest)
