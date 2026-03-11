@@ -1,0 +1,37 @@
+name: FisioTrack CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential libsqlcipher-dev libssl-dev libgtest-dev
+
+    - name: Configure CMake
+      run: |
+        cd backend
+        mkdir build
+        cd build
+        cmake ..
+
+    - name: Build
+      run: |
+        cd backend/build
+        make -j$(nproc)
+
+    - name: Run Tests
+    # Apenas o backend por agora, pois o frontend não foi implementado
+      run: |
+        cd backend/build
+        ./unit_tests
