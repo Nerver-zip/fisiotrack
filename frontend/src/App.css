@@ -1,0 +1,93 @@
+:root {
+  --unimed-green: #00995D;
+  --unimed-dark-green: #006633;
+  --unimed-light-green: #A1D4A1;
+  --unimed-bg: #EDF1F0;
+  --unimed-white: #FFFFFF;
+  --unimed-text: #333333;
+  --unimed-border: #E0E0E0;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--unimed-bg);
+  color: var(--unimed-text);
+  line-height: 1.6;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header {
+  background-color: var(--unimed-white);
+  color: var(--unimed-green);
+  padding: 1rem 2rem;
+  border-bottom: 4px solid var(--unimed-green);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.logo-unimed {
+  color: var(--unimed-green);
+  font-weight: bold;
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.card {
+  background-color: var(--unimed-white);
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  border: 1px solid var(--unimed-border);
+}
+
+.btn-primary {
+  background-color: var(--unimed-green);
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: var(--unimed-dark-green);
+}
+
+.search-bar {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 0.8rem;
+  border: 1px solid var(--unimed-border);
+  border-radius: 4px;
+}

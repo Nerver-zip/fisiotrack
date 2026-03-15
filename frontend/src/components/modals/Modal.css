@@ -1,0 +1,176 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.modal-content {
+  background-color: var(--unimed-white);
+  padding: 2rem;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  border-top: 5px solid var(--unimed-green);
+  animation: modal-appear 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-content.detail-modal {
+  max-width: 800px;
+  max-height: 90vh;
+}
+
+@keyframes modal-appear {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--unimed-border);
+  padding-bottom: 1rem;
+}
+
+.modal-title {
+  color: var(--unimed-green);
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #999;
+}
+
+.modal-body-scroll {
+  overflow-y: auto;
+  padding-right: 15px;
+  margin-bottom: 1.5rem;
+}
+
+/* Form Styles */
+.form-section {
+  margin-bottom: 2rem;
+}
+
+.form-section h3 {
+  color: var(--unimed-dark-green);
+  font-size: 1rem;
+  margin-bottom: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #555;
+}
+
+.form-group input, .form-group textarea, .form-group select {
+  padding: 0.7rem;
+  border: 1px solid var(--unimed-border);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.form-group input:focus, .form-group textarea:focus {
+  outline: none;
+  border-color: var(--unimed-green);
+  box-shadow: 0 0 0 2px rgba(0, 153, 93, 0.1);
+}
+
+.treatment-textarea {
+  border-left: 4px solid var(--unimed-green) !important;
+}
+
+/* Detail Styles */
+.detail-section {
+  margin-bottom: 2rem;
+}
+
+.detail-section h3 {
+  color: var(--unimed-dark-green);
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  border-left: 4px solid var(--unimed-green);
+  padding-left: 10px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.text-box {
+  background-color: #f9f9f9;
+  border: 1px solid var(--unimed-border);
+  padding: 1rem;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.footer-actions {
+  border-top: 1px solid var(--unimed-border);
+  padding-top: 1.5rem;
+}
+
+.btn-cancel {
+  background: none;
+  border: 1px solid var(--unimed-border);
+  padding: 0.7rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #666;
+  font-weight: 600;
+}
+
+.btn-confirm-danger {
+  background-color: #d9534f;
+  color: white;
+  border: none;
+  padding: 0.7rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
