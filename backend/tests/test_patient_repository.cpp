@@ -15,7 +15,7 @@ protected:
 
     Patient create_minimal_patient(const std::string& name) {
         return Patient{
-            std::nullopt, name, 0, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
+            std::nullopt, "", name, "", 0, "", "", "", "", "", "", "", "", "", "", "", "", "", ""
         };
     }
 

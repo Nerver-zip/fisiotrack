@@ -22,7 +22,7 @@ protected:
 
     Patient create_minimal_patient(const std::string& name) {
         return Patient{
-            std::nullopt, name, 0, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""
+            std::nullopt, "", name, "", 0, "", "", "", "", "", "", "", "", "", "", "", "", "", ""
         };
     }
 
@@ -44,7 +44,7 @@ TEST_F(DatabaseDiskTest, DataPersistsAfterClosing) {
     {
         SqliteDatabase db;
         db.open(test_db, test_pass);
-        Patient p{std::nullopt, "Paciente Persistente", 40, "123", "1980-01-01", "2024-03-11", "M", "Endereço", "Prof", "123", "Dr", "Diag", "Queixa", "Hist1", "Hist2", "Med", "Hab", "Exame", "Trat"};
+        Patient p{std::nullopt, "SUS-123", "Paciente Persistente", "Maria", 40, "123", "1980-01-01", "2024-03-11", "M", "Endereço", "Prof", "123", "Dr", "Diag", "Queixa", "Hist1", "Hist2", "Med", "Hab", "Exame", "Trat"};
         ASSERT_TRUE(db.add_patient(p));
         db.close(); // Banco fechado e "salvo" no disco
     }
@@ -62,7 +62,8 @@ TEST_F(DatabaseDiskTest, DataPersistsAfterClosing) {
 TEST_F(DatabaseDiskTest, FileIsEncryptedAndNotPlaintext) {
     SqliteDatabase db;
     db.open(test_db, test_pass);
-    db.add_patient({std::nullopt, "NOME_MUITO_ESPECIFICO_PARA_BUSCA", 0, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""});
+    Patient p{std::nullopt, "000", "NOME_MUITO_ESPECIFICO_PARA_BUSCA", "", 0, "", "", "", "", "", "", "", "", "", "", "", "", "", ""};
+    db.add_patient(p);
     db.close();
 
     // Tenta ler o arquivo .db como se fosse um arquivo de texto comum

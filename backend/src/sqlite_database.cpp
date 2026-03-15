@@ -1,6 +1,5 @@
 #include "../include/clinic/sqlite_database.hpp"
 #include <iostream>
-#include <format>
 #include <vector>
 
 namespace clinic {
@@ -21,7 +20,6 @@ bool SqliteDatabase::open(const std::string& db_path, const std::string& key) {
     }
 
     char* err_msg = nullptr;
-    // Tenta uma operação simples para validar a chave
     const char* test_sql = "SELECT count(*) FROM sqlite_master;";
     if (sqlite3_exec(m_db, test_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
         if (err_msg) sqlite3_free(err_msg);
@@ -30,7 +28,9 @@ bool SqliteDatabase::open(const std::string& db_path, const std::string& key) {
 
     const char* sql = "CREATE TABLE IF NOT EXISTS patients ("
                       "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                      "healthcare_id TEXT,"
                       "name TEXT NOT NULL,"
+                      "mom_name TEXT,"
                       "age INTEGER,"
                       "cpf TEXT,"
                       "birth_date TEXT,"
@@ -66,32 +66,34 @@ void SqliteDatabase::close() {
 }
 
 bool SqliteDatabase::add_patient(const Patient& p) {
-    const char* sql = "INSERT INTO patients (name, age, cpf, birth_date, evaluation_date, gender, address, profession, phone, "
+    const char* sql = "INSERT INTO patients (healthcare_id, name, mom_name, age, cpf, birth_date, evaluation_date, gender, address, profession, phone, "
                       "doctor, medical_diagnosis, chief_complaint, history_present_illness, past_medical_history, "
                       "medications, habits_activities, physical_exam, treatment_plan) "
-                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
     
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
-
-    sqlite3_bind_text(stmt, 1, p.name.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 2, p.age);
-    sqlite3_bind_text(stmt, 3, p.cpf.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 4, p.birth_date.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 5, p.evaluation_date.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 6, p.gender.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 7, p.address.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 8, p.profession.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 9, p.phone.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 10, p.doctor.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 11, p.medical_diagnosis.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 12, p.chief_complaint.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 13, p.history_present_illness.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 14, p.past_medical_history.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 15, p.medications.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 16, p.habits_activities.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 17, p.physical_exam.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 18, p.treatment_plan.c_str(), -1, SQLITE_TRANSIENT);
+    
+    sqlite3_bind_text(stmt, 1, p.healthcare_id.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, p.name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, p.mom_name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 4, p.age);
+    sqlite3_bind_text(stmt, 5, p.cpf.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 6, p.birth_date.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 7, p.evaluation_date.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 8, p.gender.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 9, p.address.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 10, p.profession.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 11, p.phone.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 12, p.doctor.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 13, p.medical_diagnosis.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 14, p.chief_complaint.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 15, p.history_present_illness.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 16, p.past_medical_history.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 17, p.medications.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 18, p.habits_activities.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 19, p.physical_exam.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 20, p.treatment_plan.c_str(), -1, SQLITE_TRANSIENT);
 
     bool success = (sqlite3_step(stmt) == SQLITE_DONE);
     sqlite3_finalize(stmt);
@@ -115,9 +117,9 @@ std::optional<Patient> SqliteDatabase::get_patient(int id) {
         p = Patient{
             sqlite3_column_int(stmt, 0),
             get_text(1),
-            sqlite3_column_int(stmt, 2),
+            get_text(2),
             get_text(3),
-            get_text(4),
+            sqlite3_column_int(stmt, 4),
             get_text(5),
             get_text(6),
             get_text(7),
@@ -131,7 +133,9 @@ std::optional<Patient> SqliteDatabase::get_patient(int id) {
             get_text(15),
             get_text(16),
             get_text(17),
-            get_text(18)
+            get_text(18),
+            get_text(19),
+            get_text(20)
         };
     }
 
@@ -154,9 +158,9 @@ std::vector<Patient> SqliteDatabase::get_all_patients() {
         patients.push_back(Patient{
             sqlite3_column_int(stmt, 0),
             get_text(1),
-            sqlite3_column_int(stmt, 2),
+            get_text(2),
             get_text(3),
-            get_text(4),
+            sqlite3_column_int(stmt, 4),
             get_text(5),
             get_text(6),
             get_text(7),
@@ -170,7 +174,9 @@ std::vector<Patient> SqliteDatabase::get_all_patients() {
             get_text(15),
             get_text(16),
             get_text(17),
-            get_text(18)
+            get_text(18),
+            get_text(19),
+            get_text(20)
         });
     }
 
@@ -196,9 +202,9 @@ std::vector<Patient> SqliteDatabase::search_patients(const std::string& query) {
         patients.push_back(Patient{
             sqlite3_column_int(stmt, 0),
             get_text(1),
-            sqlite3_column_int(stmt, 2),
+            get_text(2),
             get_text(3),
-            get_text(4),
+            sqlite3_column_int(stmt, 4),
             get_text(5),
             get_text(6),
             get_text(7),
@@ -212,7 +218,9 @@ std::vector<Patient> SqliteDatabase::search_patients(const std::string& query) {
             get_text(15),
             get_text(16),
             get_text(17),
-            get_text(18)
+            get_text(18),
+            get_text(19),
+            get_text(20)
         });
     }
 
@@ -223,7 +231,7 @@ std::vector<Patient> SqliteDatabase::search_patients(const std::string& query) {
 bool SqliteDatabase::update_patient(const Patient& p) {
     if (!p.id) return false;
 
-    const char* sql = "UPDATE patients SET name=?, age=?, cpf=?, birth_date=?, evaluation_date=?, gender=?, address=?, "
+    const char* sql = "UPDATE patients SET healthcare_id=?, name=?, mom_name=?, age=?, cpf=?, birth_date=?, evaluation_date=?, gender=?, address=?, "
                       "profession=?, phone=?, doctor=?, medical_diagnosis=?, chief_complaint=?, history_present_illness=?, "
                       "past_medical_history=?, medications=?, habits_activities=?, physical_exam=?, treatment_plan=? "
                       "WHERE id=?;";
@@ -231,25 +239,27 @@ bool SqliteDatabase::update_patient(const Patient& p) {
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
 
-    sqlite3_bind_text(stmt, 1, p.name.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 2, p.age);
-    sqlite3_bind_text(stmt, 3, p.cpf.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 4, p.birth_date.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 5, p.evaluation_date.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 6, p.gender.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 7, p.address.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 8, p.profession.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 9, p.phone.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 10, p.doctor.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 11, p.medical_diagnosis.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 12, p.chief_complaint.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 13, p.history_present_illness.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 14, p.past_medical_history.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 15, p.medications.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 16, p.habits_activities.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 17, p.physical_exam.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 18, p.treatment_plan.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 19, *p.id);
+    sqlite3_bind_text(stmt, 1, p.healthcare_id.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, p.name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, p.mom_name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 4, p.age);
+    sqlite3_bind_text(stmt, 5, p.cpf.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 6, p.birth_date.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 7, p.evaluation_date.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 8, p.gender.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 9, p.address.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 10, p.profession.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 11, p.phone.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 12, p.doctor.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 13, p.medical_diagnosis.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 14, p.chief_complaint.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 15, p.history_present_illness.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 16, p.past_medical_history.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 17, p.medications.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 18, p.habits_activities.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 19, p.physical_exam.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 20, p.treatment_plan.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 21, *p.id);
 
     bool success = (sqlite3_step(stmt) == SQLITE_DONE);
     sqlite3_finalize(stmt);

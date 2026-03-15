@@ -18,7 +18,7 @@ protected:
         auto repo = std::make_shared<PatientRepository>(std::move(mock_db));
         
         // Configura paciente inicial para testes de GET/DELETE
-        Patient p{std::nullopt, "Test API", 30, "123", "1990", "2024", "M", "End", "Prof", "123", "Dr", "Diag", "Q", "H1", "H2", "M", "H", "E", "T"};
+        Patient p{std::nullopt, "0004100020040013423002", "Test API", "Maria", 30, "123", "1990", "2024", "M", "End", "Prof", "123", "Dr", "Diag", "Q", "H1", "H2", "M", "H", "E", "T"};
         repo->add_patient(p);
         
         server = std::make_unique<ApiServer>(repo);
@@ -66,7 +66,8 @@ TEST_F(ApiServerTest, CanSearchPatients) {
 TEST_F(ApiServerTest, CanCreatePatientViaPost) {
     httplib::Client cli("http://127.0.0.1:8081");
     json new_p = {
-        {"name", "New POST Patient"}, {"age", 25}, {"cpf", "000"},
+        {"healthcare_id", "0004100020040013423002"}, {"name", "New POST Patient"}, {"mom_name", "Maria"},
+        {"age", 25}, {"cpf", "000"},
         {"birth_date", ""}, {"evaluation_date", ""}, {"gender", ""},
         {"address", ""}, {"profession", ""}, {"phone", ""},
         {"doctor", ""}, {"medical_diagnosis", ""}, {"chief_complaint", ""},

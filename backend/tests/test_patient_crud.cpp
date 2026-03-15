@@ -25,7 +25,9 @@ protected:
     Patient create_sample_patient(const std::string& name) {
         return Patient{
             std::nullopt,
+            "0004100020040013423002",
             name,
+            "Maria Ferreira",
             30,
             "123.456.789-00",
             "1994-01-01",
@@ -59,7 +61,9 @@ TEST_F(PatientCRUDTest, CanAddAndRetrieveFullPatientInfo) {
     ASSERT_EQ(patients.size(), 1);
     
     Patient retrieved = patients[0];
+    EXPECT_EQ(retrieved.healthcare_id, p.healthcare_id);
     EXPECT_EQ(retrieved.name, p.name);
+    EXPECT_EQ(retrieved.mom_name, p.mom_name);
     EXPECT_EQ(retrieved.age, p.age);
     EXPECT_EQ(retrieved.cpf, p.cpf);
     EXPECT_EQ(retrieved.medical_diagnosis, p.medical_diagnosis);
@@ -87,7 +91,7 @@ TEST_F(PatientCRUDTest, CanUpdateAllFields) {
 }
 
 TEST_F(PatientCRUDTest, HandleEmptyFields) {
-    Patient p{std::nullopt, "Minimal", 0, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""};
+    Patient p{std::nullopt, "", "Minimal", "", 0, "", "", "", "", "", "", "", "", "", "", "", "", "", ""};
     ASSERT_TRUE(repo->add_patient(p));
     
     auto all = repo->get_all_patients();

@@ -11,7 +11,9 @@ namespace clinic {
  */
 struct Patient {
     std::optional<int> id;
+    std::string healthcare_id;
     std::string name;
+    std::string mom_name;
     int age;
     std::string cpf;
     std::string birth_date;
@@ -33,7 +35,9 @@ struct Patient {
     // Comparador para facilitar testes
     bool operator==(const Patient& other) const {
         return id == other.id &&
+               healthcare_id == other.healthcare_id &&
                name == other.name &&
+               mom_name == other.mom_name &&
                age == other.age &&
                cpf == other.cpf &&
                birth_date == other.birth_date &&
@@ -57,7 +61,7 @@ struct Patient {
 // Implementação manual para lidar com std::optional
 inline void to_json(nlohmann::json& j, const Patient& p) {
     j = nlohmann::json{
-        {"name", p.name}, {"age", p.age}, {"cpf", p.cpf},
+        {"healthcare_id",p.healthcare_id},{"name", p.name},{"mom_name", p.mom_name},{"age", p.age}, {"cpf", p.cpf},
         {"birth_date", p.birth_date}, {"evaluation_date", p.evaluation_date},
         {"gender", p.gender}, {"address", p.address}, {"profession", p.profession},
         {"phone", p.phone}, {"doctor", p.doctor}, {"medical_diagnosis", p.medical_diagnosis},
@@ -71,7 +75,9 @@ inline void to_json(nlohmann::json& j, const Patient& p) {
 
 inline void from_json(const nlohmann::json& j, Patient& p) {
     if (j.contains("id")) p.id = j.at("id").get<int>();
+    j.at("healthcare_id").get_to(p.healthcare_id);
     j.at("name").get_to(p.name);
+    j.at("mom_name").get_to(p.mom_name);
     j.at("age").get_to(p.age);
     j.at("cpf").get_to(p.cpf);
     j.at("birth_date").get_to(p.birth_date);
