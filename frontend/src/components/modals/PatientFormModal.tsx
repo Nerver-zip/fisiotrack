@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Patient } from '../../types';
+import { Patient, Evaluation } from '../../types';
 import './Modal.css';
 
 interface PatientFormModalProps {
@@ -8,17 +8,49 @@ interface PatientFormModalProps {
   onSave: (patient: Patient) => void;
 }
 
+// Tipo auxiliar para capturar todos os dados do formulário (Paciente + Avaliação Inicial)
+interface PatientFormData {
+  healthcare_id: string;
+  name: string;
+  mom_name: string;
+  birth_date: string;
+  cpf: string;
+  gender: string;
+  address: string;
+  profession: string;
+  phone: string; // Capturamos como string (ex: "11999999999, 11888888888")
+  // Campos da Avaliação
+  evaluation_date: string;
+  age: number;
+  doctor: string;
+  medical_diagnosis: string;
+  chief_complaint: string;
+  history_present_illness: string;
+  past_medical_history: string;
+  medications: string;
+  habits_activities: string;
+  physical_exam: string;
+  treatment_plan: string;
+}
+
 const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, onSave }) => {
-  const initialPatient: Patient = {
-    healthcare_id: '', name: '', mom_name: '', age: 0, cpf: '', 
-    birth_date: '', evaluation_date: new Date().toISOString().split('T')[0],
-    gender: 'Masculino', address: '', profession: '', phone: '', doctor: '',
-    medical_diagnosis: '', chief_complaint: '', history_present_illness: '',
-    past_medical_history: '', medications: '', habits_activities: '',
-    physical_exam: '', treatment_plan: ''
+  const initialFormData: PatientFormData = {
+    healthcare_id: '', name: '', mom_name: '', cpf: '', 
+    birth_date: '', gender: 'Masculino', address: '', profession: '', phone: '',
+    evaluation_date: new Date().toISOString().split('T')[0],
+    age: 0,
+    doctor: '',
+    medical_diagnosis: '', 
+    chief_complaint: '', 
+    history_present_illness: '',
+    past_medical_history: '', 
+    medications: '', 
+    habits_activities: '',
+    physical_exam: '', 
+    treatment_plan: ''
   };
 
-  const [formData, setFormData] = useState<Patient>(initialPatient);
+  const [formData, setFormData] = useState<PatientFormData>(initialFormData);
 
   if (!isOpen) return null;
 
@@ -29,8 +61,41 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
-    setFormData(initialPatient);
+    
+    // Processa os telefones (separa por vírgula e remove espaços)
+    const phoneArray = formData.phone.split(',').map(p => p.trim()).filter(p => p !== '');
+
+    // Constrói o objeto Patient seguindo a nova estrutura (Paciente -> Lista de Avaliações)
+    const patient: Patient = {
+      healthcare_id: formData.healthcare_id,
+      name: formData.name,
+      mom_name: formData.mom_name,
+      birth_date: formData.birth_date,
+      cpf: formData.cpf,
+      gender: formData.gender,
+      address: formData.address,
+      profession: formData.profession,
+      phone: phoneArray,
+      evaluations: [
+        {
+          patient_id: 0, // Será preenchido pelo backend
+          evaluation_date: formData.evaluation_date,
+          age: formData.age,
+          doctor: formData.doctor,
+          medical_diagnosis: formData.medical_diagnosis,
+          chief_complaint: formData.chief_complaint,
+          history_present_illness: formData.history_present_illness,
+          past_medical_history: formData.past_medical_history,
+          medications: formData.medications,
+          habits_activities: formData.habits_activities,
+          physical_exam: formData.physical_exam,
+          treatment_plan: formData.treatment_plan
+        }
+      ]
+    };
+
+    onSave(patient);
+    setFormData(initialFormData);
   };
 
   return (
@@ -82,8 +147,8 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
                 <input id="profession" type="text" name="profession" value={formData.profession} onChange={handleChange} />
               </div>
               <div className="form-group">
-                <label htmlFor="phone">Telefone</label>
-                <input id="phone" type="text" name="phone" value={formData.phone} onChange={handleChange} />
+                <label htmlFor="phone">Telefone(s)</label>
+                <input id="phone" type="text" name="phone" value={formData.phone} onChange={handleChange} placeholder="Ex: (11) 99999-9999, (11) 88888-8888" />
               </div>
             </div>
             <div className="form-group full-width" style={{ marginTop: '1rem' }}>

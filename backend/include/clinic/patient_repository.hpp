@@ -28,6 +28,12 @@ public:
     bool update_patient(const Patient& p) { return m_db->update_patient(p); }
     bool delete_patient(int id) { return m_db->delete_patient(id); }
 
+    // --- Avaliações ---
+    bool add_evaluation(const Evaluation& e) { return m_db->add_evaluation(e); }
+    std::vector<Evaluation> get_patient_evaluations(int patient_id) { return m_db->get_patient_evaluations(patient_id); }
+    bool update_evaluation(const Evaluation& e) { return m_db->update_evaluation(e); }
+    bool delete_evaluation(int id) { return m_db->delete_evaluation(id); }
+
 private:
     std::unique_ptr<IDatabase> m_db;
 };

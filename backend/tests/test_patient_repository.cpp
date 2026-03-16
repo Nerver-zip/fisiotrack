@@ -14,9 +14,10 @@ protected:
     }
 
     Patient create_minimal_patient(const std::string& name) {
-        return Patient{
-            std::nullopt, "", name, "", 0, "", "", "", "", "", "", "", "", "", "", "", "", "", ""
-        };
+        Patient p;
+        p.name = name;
+        p.phone = {"123456789"};
+        return p;
     }
 
     std::unique_ptr<PatientRepository> repo;
@@ -34,6 +35,8 @@ TEST_F(PatientRepositoryTest, CanAddAndGetPatient) {
     auto retrieved = repo->get_patient(*all[0].id);
     ASSERT_TRUE(retrieved.has_value());
     EXPECT_EQ(retrieved->name, "Test Patient");
+    ASSERT_EQ(retrieved->phone.size(), 1);
+    EXPECT_EQ(retrieved->phone[0], "123456789");
 }
 
 TEST_F(PatientRepositoryTest, CanSearchPatients) {
@@ -50,11 +53,15 @@ TEST_F(PatientRepositoryTest, CanUpdatePatient) {
     auto p = repo->get_all_patients()[0];
     
     p.name = "Updated";
+    p.phone = {"987654321", "000000000"};
     ASSERT_TRUE(repo->update_patient(p));
     
     auto updated = repo->get_patient(*p.id);
     ASSERT_TRUE(updated.has_value());
     EXPECT_EQ(updated->name, "Updated");
+    ASSERT_EQ(updated->phone.size(), 2);
+    EXPECT_EQ(updated->phone[0], "987654321");
+    EXPECT_EQ(updated->phone[1], "000000000");
 }
 
 TEST_F(PatientRepositoryTest, CanDeletePatient) {

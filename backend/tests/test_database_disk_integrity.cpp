@@ -21,9 +21,9 @@ protected:
     }
 
     Patient create_minimal_patient(const std::string& name) {
-        return Patient{
-            std::nullopt, "", name, "", 0, "", "", "", "", "", "", "", "", "", "", "", "", "", ""
-        };
+        Patient p;
+        p.name = name;
+        return p;
     }
 
     std::string test_db;
@@ -44,7 +44,31 @@ TEST_F(DatabaseDiskTest, DataPersistsAfterClosing) {
     {
         SqliteDatabase db;
         db.open(test_db, test_pass);
-        Patient p{std::nullopt, "SUS-123", "Paciente Persistente", "Maria", 40, "123", "1980-01-01", "2024-03-11", "M", "Endereço", "Prof", "123", "Dr", "Diag", "Queixa", "Hist1", "Hist2", "Med", "Hab", "Exame", "Trat"};
+        Patient p;
+        p.healthcare_id = "SUS-123";
+        p.name = "Paciente Persistente";
+        p.mom_name = "Maria";
+        p.birth_date = "1980-01-01";
+        p.cpf = "123";
+        p.gender = "M";
+        p.address = "Endereço";
+        p.profession = "Prof";
+        p.phone = {"123"};
+        
+        Evaluation e;
+        e.evaluation_date = "2024-03-11";
+        e.age = 40;
+        e.doctor = "Dr";
+        e.medical_diagnosis = "Diag";
+        e.chief_complaint = "Queixa";
+        e.history_present_illness = "Hist1";
+        e.past_medical_history = "Hist2";
+        e.medications = "Med";
+        e.habits_activities = "Hab";
+        e.physical_exam = "Exame";
+        e.treatment_plan = "Trat";
+        p.evaluations.push_back(e);
+
         ASSERT_TRUE(db.add_patient(p));
         db.close(); // Banco fechado e "salvo" no disco
     }
@@ -62,7 +86,8 @@ TEST_F(DatabaseDiskTest, DataPersistsAfterClosing) {
 TEST_F(DatabaseDiskTest, FileIsEncryptedAndNotPlaintext) {
     SqliteDatabase db;
     db.open(test_db, test_pass);
-    Patient p{std::nullopt, "000", "NOME_MUITO_ESPECIFICO_PARA_BUSCA", "", 0, "", "", "", "", "", "", "", "", "", "", "", "", "", ""};
+    Patient p;
+    p.name = "NOME_MUITO_ESPECIFICO_PARA_BUSCA";
     db.add_patient(p);
     db.close();
 

@@ -1,16 +1,8 @@
-export interface Patient {
+export interface Evaluation {
   id?: number;
-  healthcare_id: string;
-  name: string;
-  mom_name: string;
-  age: number;
-  cpf: string;
-  birth_date: string;
+  patient_id: number;
   evaluation_date: string;
-  gender: string;
-  address: string;
-  profession: string;
-  phone: string;
+  age: number;
   doctor: string;
   medical_diagnosis: string;
   chief_complaint: string;
@@ -20,4 +12,18 @@ export interface Patient {
   habits_activities: string;
   physical_exam: string;
   treatment_plan: string;
+}
+
+export interface Patient {
+  id?: number;
+  healthcare_id: string;
+  name: string;
+  mom_name: string;
+  birth_date: string;
+  cpf: string;
+  gender: string;
+  address: string;
+  profession: string;
+  phone: string[];
+  evaluations?: Evaluation[];
 }

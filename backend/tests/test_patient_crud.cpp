@@ -23,29 +23,32 @@ protected:
     }
 
     Patient create_sample_patient(const std::string& name) {
-        return Patient{
-            std::nullopt,
-            "0004100020040013423002",
-            name,
-            "Maria Ferreira",
-            30,
-            "123.456.789-00",
-            "1994-01-01",
-            "2024-03-11",
-            "Masculino",
-            "Rua Central, 100",
-            "Engenheiro",
-            "11988887777",
-            "Dr. Smith",
-            "Cervicalgia",
-            "Dor no pescoço",
-            "Piorou há 2 dias",
-            "Hipertensão",
-            "Losartana",
-            "Sedentário",
-            "Limitação de ADM em C3-C5",
-            "Liberação miofascial e exercícios"
-        };
+        Patient p;
+        p.healthcare_id = "0004100020040013423002";
+        p.name = name;
+        p.mom_name = "Maria Ferreira";
+        p.birth_date = "1994-01-01";
+        p.cpf = "123.456.789-00";
+        p.gender = "Masculino";
+        p.address = "Rua Central, 100";
+        p.profession = "Engenheiro";
+        p.phone = {"11988887777", "11977776666"};
+
+        Evaluation e;
+        e.evaluation_date = "2024-03-11";
+        e.age = 30;
+        e.doctor = "Dr. Smith";
+        e.medical_diagnosis = "Cervicalgia";
+        e.chief_complaint = "Dor no pescoço";
+        e.history_present_illness = "Piorou há 2 dias";
+        e.past_medical_history = "Hipertensão";
+        e.medications = "Losartana";
+        e.habits_activities = "Sedentário";
+        e.physical_exam = "Limitação de ADM em C3-C5";
+        e.treatment_plan = "Liberação miofascial e exercícios";
+        
+        p.evaluations.push_back(e);
+        return p;
     }
 
     std::string db_path;
@@ -60,14 +63,21 @@ TEST_F(PatientCRUDTest, CanAddAndRetrieveFullPatientInfo) {
     auto patients = repo->get_all_patients();
     ASSERT_EQ(patients.size(), 1);
     
-    Patient retrieved = patients[0];
+    auto retrieved_opt = repo->get_patient(*patients[0].id);
+    ASSERT_TRUE(retrieved_opt.has_value());
+    Patient retrieved = *retrieved_opt;
+
     EXPECT_EQ(retrieved.healthcare_id, p.healthcare_id);
     EXPECT_EQ(retrieved.name, p.name);
     EXPECT_EQ(retrieved.mom_name, p.mom_name);
-    EXPECT_EQ(retrieved.age, p.age);
     EXPECT_EQ(retrieved.cpf, p.cpf);
-    EXPECT_EQ(retrieved.medical_diagnosis, p.medical_diagnosis);
-    EXPECT_EQ(retrieved.treatment_plan, p.treatment_plan);
+    ASSERT_EQ(retrieved.phone.size(), 2);
+    EXPECT_EQ(retrieved.phone[0], "11988887777");
+
+    ASSERT_EQ(retrieved.evaluations.size(), 1);
+    EXPECT_EQ(retrieved.evaluations[0].medical_diagnosis, p.evaluations[0].medical_diagnosis);
+    EXPECT_EQ(retrieved.evaluations[0].treatment_plan, p.evaluations[0].treatment_plan);
+    EXPECT_EQ(retrieved.evaluations[0].age, 30);
 }
 
 TEST_F(PatientCRUDTest, CanUpdateAllFields) {
@@ -76,28 +86,25 @@ TEST_F(PatientCRUDTest, CanUpdateAllFields) {
     Patient p = all[0];
     
     p.name = "Updated Name";
-    p.age = 45;
-    p.doctor = "Dr. House";
-    p.medications = "Nenhuma";
+    p.phone = {"11999998888"};
     
     ASSERT_TRUE(repo->update_patient(p));
     
     auto updated = repo->get_patient(*p.id);
     ASSERT_TRUE(updated.has_value());
     EXPECT_EQ(updated->name, "Updated Name");
-    EXPECT_EQ(updated->age, 45);
-    EXPECT_EQ(updated->doctor, "Dr. House");
-    EXPECT_EQ(updated->medications, "Nenhuma");
+    ASSERT_EQ(updated->phone.size(), 1);
+    EXPECT_EQ(updated->phone[0], "11999998888");
 }
 
 TEST_F(PatientCRUDTest, HandleEmptyFields) {
-    Patient p{std::nullopt, "", "Minimal", "", 0, "", "", "", "", "", "", "", "", "", "", "", "", "", ""};
+    Patient p;
+    p.name = "Minimal";
     ASSERT_TRUE(repo->add_patient(p));
     
     auto all = repo->get_all_patients();
     ASSERT_FALSE(all.empty());
     EXPECT_EQ(all[0].name, "Minimal");
-    EXPECT_EQ(all[0].cpf, "");
 }
 
 TEST_F(PatientCRUDTest, DeleteRemovesFromDatabase) {

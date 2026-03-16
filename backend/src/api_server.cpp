@@ -75,6 +75,32 @@ void ApiServer::setup_routes() {
             res.status = 500;
         }
     });
+
+    // --- Endpoints de Avaliações ---
+
+    // Adicionar nova entrada/avaliação para um paciente
+    m_svr.Post(R"(/api/patients/(\d+)/evaluations)", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            int patient_id = std::stoi(req.matches[1]);
+            auto e = json::parse(req.body).get<Evaluation>();
+            e.patient_id = patient_id;
+            if (m_repo->add_evaluation(e)) {
+                res.status = 201;
+                res.set_content(json({{"status", "ok"}}).dump(), "application/json");
+            } else {
+                res.status = 500;
+            }
+        } catch (...) {
+            res.status = 400;
+        }
+    });
+
+    // Listar histórico de um paciente
+    m_svr.Get(R"(/api/patients/(\d+)/evaluations)", [this](const httplib::Request& req, httplib::Response& res) {
+        int patient_id = std::stoi(req.matches[1]);
+        auto evals = m_repo->get_patient_evaluations(patient_id);
+        res.set_content(json(evals).dump(), "application/json");
+    });
 }
 
 } // namespace clinic
