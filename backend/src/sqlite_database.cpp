@@ -15,6 +15,9 @@ bool SqliteDatabase::open(const std::string& db_path, const std::string& key) {
         if (sqlite3_key(m_db, key.c_str(), static_cast<int>(key.size())) != SQLITE_OK) return false;
     }
 
+    // Ativar chaves estrangeiras para garantir integridade e delete cascade
+    sqlite3_exec(m_db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+
     char* err_msg = nullptr;
     const char* test_sql = "SELECT count(*) FROM sqlite_master;";
     if (sqlite3_exec(m_db, test_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {

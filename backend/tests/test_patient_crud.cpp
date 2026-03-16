@@ -198,4 +198,167 @@ TEST_F(PatientCRUDTest, RejectUpdateWithoutId) {
     EXPECT_FALSE(repo->update_patient(p));
 }
 
+// --- Novos Testes de Edge Cases (Sprint 5) ---
+
+TEST_F(PatientCRUDTest, PatientWithZeroPhones) {
+    Patient p;
+    p.name = "No Phone Patient";
+    p.phone = {}; // Lista vazia
+    ASSERT_TRUE(repo->add_patient(p));
+    
+    auto all = repo->get_all_patients();
+    auto retrieved = repo->get_patient(*all[0].id);
+    ASSERT_TRUE(retrieved.has_value());
+    EXPECT_TRUE(retrieved->phone.empty());
+}
+
+TEST_F(PatientCRUDTest, PatientWithManyPhones) {
+    Patient p;
+    p.name = "Many Phones Patient";
+    p.phone = {"111", "222", "333", "444", "555"};
+    ASSERT_TRUE(repo->add_patient(p));
+    
+    auto all = repo->get_all_patients();
+    auto retrieved = repo->get_patient(*all[0].id);
+    ASSERT_TRUE(retrieved.has_value());
+    EXPECT_EQ(retrieved->phone.size(), 5);
+    EXPECT_EQ(retrieved->phone[4], "555");
+}
+
+TEST_F(PatientCRUDTest, UpdatePhones_AddAndRemove) {
+    Patient p;
+    p.name = "Phone Update Test";
+    p.phone = {"Old1", "Keep"};
+    repo->add_patient(p);
+    
+    auto all = repo->get_all_patients();
+    p = *repo->get_patient(*all[0].id);
+    
+    // Altera telefones: remove Old1, mantém Keep, adiciona New1
+    p.phone = {"Keep", "New1"};
+    ASSERT_TRUE(repo->update_patient(p));
+    
+    auto updated = repo->get_patient(*p.id);
+    ASSERT_EQ(updated->phone.size(), 2);
+    EXPECT_EQ(updated->phone[0], "Keep");
+    EXPECT_EQ(updated->phone[1], "New1");
+}
+
+TEST_F(PatientCRUDTest, UpdatePhones_ClearAll) {
+    Patient p;
+    p.name = "Clear Phone Test";
+    p.phone = {"999"};
+    repo->add_patient(p);
+    
+    auto all = repo->get_all_patients();
+    p = *repo->get_patient(*all[0].id);
+    
+    p.phone = {}; // Limpa tudo
+    ASSERT_TRUE(repo->update_patient(p));
+    
+    auto updated = repo->get_patient(*p.id);
+    EXPECT_TRUE(updated->phone.empty());
+}
+
+TEST_F(PatientCRUDTest, PatientWithMultipleEvaluationsInTransaction) {
+    Patient p;
+    p.name = "Multi Eval Patient";
+    
+    Evaluation e1; e1.evaluation_date = "2024-01-01"; e1.medical_diagnosis = "D1";
+    Evaluation e2; e2.evaluation_date = "2024-02-01"; e2.medical_diagnosis = "D2";
+    p.evaluations = {e1, e2};
+    
+    ASSERT_TRUE(repo->add_patient(p));
+    
+    auto all = repo->get_all_patients();
+    auto retrieved = repo->get_patient(*all[0].id);
+    ASSERT_EQ(retrieved->evaluations.size(), 2);
+    // Verificando ordem DESC (padrão do SQL implementado)
+    EXPECT_EQ(retrieved->evaluations[0].evaluation_date, "2024-02-01");
+}
+
+TEST_F(PatientCRUDTest, AddEvaluationDirectly) {
+    Patient p; p.name = "Direct Eval Test";
+    repo->add_patient(p);
+    int pid = *repo->get_all_patients()[0].id;
+    
+    Evaluation e;
+    e.patient_id = pid;
+    e.evaluation_date = "2025-01-01";
+    e.medical_diagnosis = "Post-creation Eval";
+    
+    ASSERT_TRUE(repo->add_evaluation(e));
+    
+    auto retrieved = repo->get_patient(pid);
+    ASSERT_EQ(retrieved->evaluations.size(), 1);
+    EXPECT_EQ(retrieved->evaluations[0].medical_diagnosis, "Post-creation Eval");
+}
+
+TEST_F(PatientCRUDTest, DeletePatientCascadeCheck) {
+    Patient p = create_sample_patient("Cascade Test");
+    repo->add_patient(p);
+    int pid = *repo->get_all_patients()[0].id;
+    
+    // Verifica se tem avaliação e telefone antes
+    auto retrieved = repo->get_patient(pid);
+    ASSERT_FALSE(retrieved->phone.empty());
+    ASSERT_FALSE(retrieved->evaluations.empty());
+    
+    ASSERT_TRUE(repo->delete_patient(pid));
+    
+    // Se o cascade funcionar, não deve haver órfãos (testamos tentando buscar avaliações)
+    auto evals = repo->get_patient_evaluations(pid);
+    EXPECT_TRUE(evals.empty());
+}
+
+TEST_F(PatientCRUDTest, ForeignKeysWork_AddEvalToNonExistentPatient) {
+    Evaluation e;
+    e.patient_id = 999999; // ID inexistente
+    e.evaluation_date = "2024-01-01";
+    // O SQLite com FK ativado deve falhar. Se não estiver, o teste falha mas nos avisa.
+    EXPECT_FALSE(repo->add_evaluation(e));
+}
+
+TEST_F(PatientCRUDTest, EvaluationsOrderingByDate) {
+    Patient p; p.name = "Order Test";
+    repo->add_patient(p);
+    int pid = *repo->get_all_patients()[0].id;
+    
+    Evaluation e1; e1.patient_id = pid; e1.evaluation_date = "2024-01-10";
+    Evaluation e2; e2.patient_id = pid; e2.evaluation_date = "2024-01-20";
+    Evaluation e3; e3.patient_id = pid; e3.evaluation_date = "2024-01-05";
+    
+    repo->add_evaluation(e1);
+    repo->add_evaluation(e2);
+    repo->add_evaluation(e3);
+    
+    auto retrieved = repo->get_patient(pid);
+    ASSERT_EQ(retrieved->evaluations.size(), 3);
+    // Ordem esperada: 2024-01-20, 2024-01-10, 2024-01-05
+    EXPECT_EQ(retrieved->evaluations[0].evaluation_date, "2024-01-20");
+    EXPECT_EQ(retrieved->evaluations[1].evaluation_date, "2024-01-10");
+    EXPECT_EQ(retrieved->evaluations[2].evaluation_date, "2024-01-05");
+}
+
+TEST_F(PatientCRUDTest, UpdateSpecificEvaluationAndIsolation) {
+    Patient p; p.name = "Eval Isolation Test";
+    repo->add_patient(p);
+    int pid = *repo->get_all_patients()[0].id;
+    
+    Evaluation e1; e1.patient_id = pid; e1.evaluation_date = "2024-01-01"; e1.medical_diagnosis = "Orig1";
+    Evaluation e2; e2.patient_id = pid; e2.evaluation_date = "2024-02-01"; e2.medical_diagnosis = "Orig2";
+    repo->add_evaluation(e1);
+    repo->add_evaluation(e2);
+    
+    auto evals = repo->get_patient_evaluations(pid);
+    Evaluation to_update = evals[0]; // "Orig2" (mais recente)
+    to_update.medical_diagnosis = "Updated2";
+    
+    ASSERT_TRUE(repo->update_evaluation(to_update));
+    
+    auto updated_evals = repo->get_patient_evaluations(pid);
+    EXPECT_EQ(updated_evals[0].medical_diagnosis, "Updated2");
+    EXPECT_EQ(updated_evals[1].medical_diagnosis, "Orig1"); // Isolamento mantido
+}
+
 } // namespace clinic
