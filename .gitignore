@@ -47,5 +47,4 @@ tmp/
 backups/
 
 # --- Dev Stuff
-BRIEFING.md
-STORIES.md
+/dev

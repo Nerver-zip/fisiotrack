@@ -23,6 +23,7 @@ public:
     virtual std::vector<Patient> search_patients(const std::string& query) = 0;
     virtual bool update_patient(const Patient& p) = 0;
     virtual bool delete_patient(int id) = 0;
+    virtual void import_patients(const std::vector<Patient>& patients) = 0;
 
     // --- Avaliações (Entradas Clínicas) ---
     virtual bool add_evaluation(const Evaluation& e) = 0;

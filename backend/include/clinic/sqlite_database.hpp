@@ -25,6 +25,9 @@ public:
     virtual std::vector<Patient> search_patients(const std::string& query) override;
     virtual bool update_patient(const Patient& p) override;
     virtual bool delete_patient(int id) override;
+    virtual void import_patients(const std::vector<Patient>& patients) override {
+        // A lógica de importação e mesclagem é gerenciada pelo repositório
+    }
 
     // --- Avaliações ---
     virtual bool add_evaluation(const Evaluation& e) override;

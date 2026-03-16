@@ -78,6 +78,39 @@ function App() {
     }
   };
 
+  const handleImportJson = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const content = event.target?.result as string;
+        const data = JSON.parse(content);
+        
+        const response = await fetch('http://localhost:8080/api/patients/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          alert(`Importação concluída!\nProcessados: ${result.total_processed}\nNovos: ${result.imported_new}`);
+          fetchPatients();
+        } else {
+          const err = await response.json();
+          alert('Erro na importação: ' + (err.error || 'Erro desconhecido'));
+        }
+      } catch (err) {
+        alert('Erro ao processar arquivo JSON');
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    e.target.value = '';
+  };
+
   const saveEvaluation = async (evaluation: Evaluation) => {
     try {
       const response = await fetch(`http://localhost:8080/api/patients/${evaluation.patient_id}/evaluations`, {
@@ -137,6 +170,15 @@ function App() {
             >
               + Novo Paciente
             </button>
+            <label className="btn-primary" style={{ backgroundColor: '#5bc0de', cursor: 'pointer', display: 'inline-block', lineHeight: 'normal' }}>
+              📥 Importar JSON
+              <input 
+                type="file" 
+                accept=".json" 
+                onChange={handleImportJson} 
+                style={{ display: 'none' }}
+              />
+            </label>
           </form>
 
           {error && <div style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}

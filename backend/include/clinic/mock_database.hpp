@@ -22,6 +22,12 @@ public:
         Patient new_p = p;
         new_p.id = m_next_patient_id++;
         m_patients[new_p.id.value()] = new_p;
+        // Simula o salvamento de avaliações em cascata
+        for(const auto& eval : p.evaluations) {
+            Evaluation e = eval;
+            e.patient_id = *new_p.id;
+            add_evaluation(e);
+        }
         return true;
     }
 
@@ -67,6 +73,12 @@ public:
     bool delete_patient(int id) override {
         m_evaluations.erase(id); // Limpa avaliações vinculadas (simplificado)
         return m_patients.erase(id) > 0;
+    }
+
+    void import_patients(const std::vector<Patient>& patients) override {
+        for (const auto& p : patients) {
+            add_patient(p);
+        }
     }
 
     // --- Avaliações ---

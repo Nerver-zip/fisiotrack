@@ -69,6 +69,7 @@ add_executable(unit_tests
     tests/test_patient_repository.cpp
     tests/test_database_disk_integrity.cpp
     tests/test_api_server.cpp
+    tests/test_import_logic.cpp
 )
 
 target_link_libraries(unit_tests PRIVATE clinic_lib gtest_main)

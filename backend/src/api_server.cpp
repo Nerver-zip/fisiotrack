@@ -66,6 +66,22 @@ void ApiServer::setup_routes() {
         }
     });
 
+    // Importar pacientes (JSON)
+    m_svr.Post("/api/patients/import", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            auto patients = json::parse(req.body).get<std::vector<Patient>>();
+            m_repo->import_patients(patients);
+
+            res.status = 201;
+            res.set_content(json({{"status", "ok"}}).dump(), "application/json");
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(json({{"error", e.what()}}).dump(), "application/json");
+        } catch (...) {
+            res.status = 500;
+        }
+    });
+
     // Remover paciente
     m_svr.Delete(R"(/api/patients/(\d+))", [this](const httplib::Request& req, httplib::Response& res) {
         int id = std::stoi(req.matches[1]);
