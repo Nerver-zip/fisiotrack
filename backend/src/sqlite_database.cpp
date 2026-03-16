@@ -184,7 +184,15 @@ std::optional<Patient> SqliteDatabase::get_patient(int id) {
 
 std::vector<Patient> SqliteDatabase::get_all_patients() {
     std::vector<Patient> patients;
-    const char* sql = "SELECT * FROM patients;";
+    // Query que traz o paciente e os dados da última avaliação (se existir)
+    const char* sql = "SELECT p.*, e.evaluation_date, e.medical_diagnosis "
+                      "FROM patients p "
+                      "LEFT JOIN ( "
+                      "    SELECT patient_id, evaluation_date, medical_diagnosis, "
+                      "           ROW_NUMBER() OVER (PARTITION BY patient_id ORDER BY evaluation_date DESC) as rn "
+                      "    FROM evaluations "
+                      ") e ON p.id = e.patient_id AND e.rn = 1;";
+
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return patients;
 
@@ -193,12 +201,29 @@ std::vector<Patient> SqliteDatabase::get_all_patients() {
             const unsigned char* text = sqlite3_column_text(stmt, col);
             return text ? reinterpret_cast<const char*>(text) : "";
         };
-        patients.push_back(Patient{
-            sqlite3_column_int(stmt, 0), get_text(1), get_text(2), get_text(3),
-            get_text(4), get_text(5), get_text(6), get_text(7), get_text(8),
-            {}, // Não carrega telefones na listagem por performance
-            {} // Não carrega avaliações por performance na listagem
-        });
+
+        Patient p;
+        p.id = sqlite3_column_int(stmt, 0);
+        p.healthcare_id = get_text(1);
+        p.name = get_text(2);
+        p.mom_name = get_text(3);
+        p.birth_date = get_text(4);
+        p.cpf = get_text(5);
+        p.gender = get_text(6);
+        p.address = get_text(7);
+        p.profession = get_text(8);
+        p.phone = {};
+        
+        // Se houver data de avaliação, adiciona uma avaliação parcial no vetor para o frontend
+        std::string last_date = get_text(9);
+        if (!last_date.empty()) {
+            Evaluation last_eval;
+            last_eval.evaluation_date = last_date;
+            last_eval.medical_diagnosis = get_text(10);
+            p.evaluations.push_back(last_eval);
+        }
+
+        patients.push_back(p);
     }
     sqlite3_finalize(stmt);
     return patients;
@@ -206,7 +231,15 @@ std::vector<Patient> SqliteDatabase::get_all_patients() {
 
 std::vector<Patient> SqliteDatabase::search_patients(const std::string& query) {
     std::vector<Patient> patients;
-    const char* sql = "SELECT * FROM patients WHERE name LIKE ?;";
+    const char* sql = "SELECT p.*, e.evaluation_date, e.medical_diagnosis "
+                      "FROM patients p "
+                      "LEFT JOIN ( "
+                      "    SELECT patient_id, evaluation_date, medical_diagnosis, "
+                      "           ROW_NUMBER() OVER (PARTITION BY patient_id ORDER BY evaluation_date DESC) as rn "
+                      "    FROM evaluations "
+                      ") e ON p.id = e.patient_id AND e.rn = 1 "
+                      "WHERE p.name LIKE ?;";
+
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return patients;
 
@@ -218,12 +251,28 @@ std::vector<Patient> SqliteDatabase::search_patients(const std::string& query) {
             const unsigned char* text = sqlite3_column_text(stmt, col);
             return text ? reinterpret_cast<const char*>(text) : "";
         };
-        patients.push_back(Patient{
-            sqlite3_column_int(stmt, 0), get_text(1), get_text(2), get_text(3),
-            get_text(4), get_text(5), get_text(6), get_text(7), get_text(8),
-            {},
-            {}
-        });
+
+        Patient p;
+        p.id = sqlite3_column_int(stmt, 0);
+        p.healthcare_id = get_text(1);
+        p.name = get_text(2);
+        p.mom_name = get_text(3);
+        p.birth_date = get_text(4);
+        p.cpf = get_text(5);
+        p.gender = get_text(6);
+        p.address = get_text(7);
+        p.profession = get_text(8);
+        p.phone = {};
+
+        std::string last_date = get_text(9);
+        if (!last_date.empty()) {
+            Evaluation last_eval;
+            last_eval.evaluation_date = last_date;
+            last_eval.medical_diagnosis = get_text(10);
+            p.evaluations.push_back(last_eval);
+        }
+
+        patients.push_back(p);
     }
     sqlite3_finalize(stmt);
     return patients;

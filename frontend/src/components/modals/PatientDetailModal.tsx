@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Patient, Evaluation } from '../../types';
+import { formatDate } from '../../utils';
 import './Modal.css';
 
 interface PatientDetailModalProps {
@@ -30,11 +31,16 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({ isOpen, patient
           <section className="detail-section">
             <h3>📍 Dados Cadastrais</h3>
             <div className="detail-grid">
-              <p><strong>Nome:</strong> {patient.name}</p>
-              <p><strong>CPF:</strong> {patient.cpf}</p>
-              <p><strong>ID Convênio:</strong> {patient.healthcare_id}</p>
-              <p><strong>Telefone:</strong> {Array.isArray(patient.phone) ? patient.phone.join(', ') : patient.phone}</p>
+              <p><strong>Nome:</strong> {patient.name || ''}</p>
+              <p><strong>CPF:</strong> {patient.cpf || ''}</p>
+              <p><strong>ID Convênio:</strong> {patient.healthcare_id || ''}</p>
+              <p><strong>Nome da Mãe:</strong> {patient.mom_name || ''}</p>
+              <p><strong>Nascimento:</strong> {formatDate(patient.birth_date)}</p>
+              <p><strong>Sexo:</strong> {patient.gender || ''}</p>
+              <p><strong>Profissão:</strong> {patient.profession || ''}</p>
+              <p><strong>Telefone:</strong> {Array.isArray(patient.phone) ? patient.phone.join(', ') : (patient.phone || '')}</p>
             </div>
+            <p style={{ marginTop: '0.5rem' }}><strong>Endereço:</strong> {patient.address || ''}</p>
           </section>
 
           <section className="detail-section">
@@ -53,11 +59,11 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({ isOpen, patient
               <div className="evaluation-tabs">
                 {patient.evaluations.map(e => (
                   <button 
-                    key={e.id}
+                    key={e.id || e.evaluation_date}
                     className={`tab-item ${((selectedEvalId === null && patient.evaluations?.[0].id === e.id) || selectedEvalId === e.id) ? 'active' : ''}`}
                     onClick={() => e.id && setSelectedEvalId(e.id)}
                   >
-                    {e.evaluation_date}
+                    {formatDate(e.evaluation_date)}
                   </button>
                 ))}
               </div>
@@ -69,23 +75,35 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({ isOpen, patient
           {currentEval && (
             <div className="evaluation-content">
               <section className="detail-section">
-                <h3>🏥 Informações da Entrada ({currentEval.evaluation_date})</h3>
+                <h3>🏥 Informações da Entrada ({formatDate(currentEval.evaluation_date)})</h3>
                 <div className="detail-grid">
-                  <p><strong>Médico:</strong> {currentEval.doctor}</p>
-                  <p><strong>Idade na data:</strong> {currentEval.age} anos</p>
-                  <p><strong>Diagnóstico:</strong> {currentEval.medical_diagnosis}</p>
+                  <p><strong>Médico:</strong> {currentEval.doctor || ''}</p>
+                  <p><strong>Idade na data:</strong> {currentEval.age || ''} anos</p>
+                  <p><strong>Diagnóstico Médico:</strong> {currentEval.medical_diagnosis || ''}</p>
                 </div>
               </section>
 
               <section className="detail-section">
                 <p><strong>Queixa Principal:</strong></p>
-                <div className="text-box">{currentEval.chief_complaint}</div>
+                <div className="text-box">{currentEval.chief_complaint || ''}</div>
                 
                 <p><strong>História da Doença Atual (HDA):</strong></p>
-                <div className="text-box">{currentEval.history_present_illness}</div>
+                <div className="text-box">{currentEval.history_present_illness || ''}</div>
+
+                <p><strong>História Patológica Pregressa (HPP):</strong></p>
+                <div className="text-box">{currentEval.past_medical_history || ''}</div>
+
+                <p><strong>Medicamentos em uso:</strong></p>
+                <div className="text-box">{currentEval.medications || ''}</div>
+
+                <p><strong>Atividades e Hábitos:</strong></p>
+                <div className="text-box">{currentEval.habits_activities || ''}</div>
+
+                <p><strong>Exame Físico / Complementares:</strong></p>
+                <div className="text-box">{currentEval.physical_exam || ''}</div>
                 
                 <p><strong>Plano de Tratamento:</strong></p>
-                <div className="text-box highlight">{currentEval.treatment_plan}</div>
+                <div className="text-box highlight">{currentEval.treatment_plan || ''}</div>
               </section>
             </div>
           )}

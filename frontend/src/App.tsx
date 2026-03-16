@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import { Patient, Evaluation } from './types';
+import { formatDate } from './utils';
 import ConfirmationModal from './components/modals/ConfirmationModal';
 import PatientDetailModal from './components/modals/PatientDetailModal';
 import PatientFormModal from './components/modals/PatientFormModal';
@@ -146,18 +147,18 @@ function App() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--unimed-border)' }}>
-                  <th style={{ padding: '1rem' }}>ID Convênio</th>
                   <th style={{ padding: '1rem' }}>Nome</th>
-                  <th style={{ padding: '1rem' }}>CPF</th>
+                  <th style={{ padding: '1rem' }}>Última Entrada</th>
+                  <th style={{ padding: '1rem' }}>Diagnóstico</th>
                   <th style={{ padding: '1rem' }}>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {patients.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--unimed-border)' }}>
-                    <td style={{ padding: '1rem' }}>{p.healthcare_id}</td>
                     <td style={{ padding: '1rem' }}>{p.name}</td>
-                    <td style={{ padding: '1rem' }}>{p.cpf}</td>
+                    <td style={{ padding: '1rem' }}>{p.evaluations?.[0] ? formatDate(p.evaluations[0].evaluation_date) : 'Sem avaliação'}</td>
+                    <td style={{ padding: '1rem' }}>{p.evaluations?.[0]?.medical_diagnosis || 'Não informado'}</td>
                     <td style={{ padding: '1rem', display: 'flex', gap: '10px' }}>
                       <button 
                         onClick={() => p.id && fetchPatientWithHistory(p.id)}

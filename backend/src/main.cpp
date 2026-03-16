@@ -29,6 +29,7 @@ void seed_if_needed(PatientRepository& repo) {
 
     std::cout << "Semeando banco de dados relacional..." << std::endl;
     
+    // Paciente 1
     Patient p1;
     p1.healthcare_id = "0004100020040013423002";
     p1.name = "Joaquim Ferreira";
@@ -39,15 +40,75 @@ void seed_if_needed(PatientRepository& repo) {
     p1.address = "Rua das Flores, 123";
     p1.profession = "Aposentado";
     p1.phone = {"11999887766"};
-    repo.add_patient(p1);
     
-    // Recupera o ID gerado para vincular a avaliação
-    auto patients = repo.get_all_patients();
-    if (patients.empty()) return;
-    int p1_id = *patients[0].id;
+    Evaluation e1;
+    e1.evaluation_date = "2026-03-11";
+    e1.age = 65;
+    e1.doctor = "Dr. Arnaldo";
+    e1.medical_diagnosis = "Artrite Reumatoide";
+    e1.chief_complaint = "Dor crônica nos joelhos";
+    e1.history_present_illness = "Início há 5 anos.";
+    e1.past_medical_history = "Nenhuma";
+    e1.medications = "Metotrexato";
+    e1.habits_activities = "Caminhada leve";
+    e1.physical_exam = "Crepitação";
+    e1.treatment_plan = "Fortalecimento";
+    p1.evaluations.push_back(e1);
+    repo.add_patient(p1);
 
-    Evaluation e1{std::nullopt, p1_id, "2026-03-11", 65, "Dr. Arnaldo", "Artrite Reumatoide", "Dor crônica nos joelhos", "Início há 5 anos.", "Nenhuma", "Metotrexato", "Caminhada leve", "Crepitação", "Fortalecimento"};
-    repo.add_evaluation(e1);
+    // Paciente 2
+    Patient p2;
+    p2.healthcare_id = "0004100020040013423003";
+    p2.name = "Ana Paula Souza";
+    p2.mom_name = "Lucia Souza";
+    p2.birth_date = "1985-08-20";
+    p2.cpf = "987.654.321-00";
+    p2.gender = "Feminino";
+    p2.address = "Av. Paulista, 1500";
+    p2.profession = "Advogada";
+    p1.phone = {"11988776655"};
+
+    Evaluation e2;
+    e2.evaluation_date = "2026-03-15";
+    e2.age = 40;
+    e2.doctor = "Dra. Beatriz";
+    e2.medical_diagnosis = "Hérnia de Disco Lombar";
+    e2.chief_complaint = "Dor irradiada para perna direita";
+    e2.history_present_illness = "Piora após carregar peso.";
+    e2.past_medical_history = "Sedentarismo";
+    e2.medications = "Pregabalina";
+    e2.habits_activities = "Trabalho sentado";
+    e2.physical_exam = "Lasègue positivo";
+    e2.treatment_plan = "RPG e Pilates";
+    p2.evaluations.push_back(e2);
+    repo.add_patient(p2);
+
+    // Paciente 3
+    Patient p3;
+    p3.healthcare_id = "44123";
+    p3.name = "Joaquim Oliveira";
+    p3.mom_name = "Fernanda Oliveira";
+    p3.birth_date = "1978-03-10";
+    p3.cpf = "408.358.200-68";
+    p3.gender = "Masculino";
+    p3.address = "Rua do Bosque, 45";
+    p3.profession = "Vendedor";
+    p3.phone = {"11977665544"};
+
+    Evaluation e3;
+    e3.evaluation_date = "2026-02-10";
+    e3.age = 47;
+    e3.doctor = "Dr. Carlos";
+    e3.medical_diagnosis = "Tendinite de Ombro";
+    e3.chief_complaint = "Dor ao elevar o braço";
+    e3.history_present_illness = "Início após esforço repetitivo.";
+    e3.past_medical_history = "Nenhuma";
+    e3.medications = "Ibuprofeno";
+    e3.habits_activities = "Academia";
+    e3.physical_exam = "Teste de Neer positivo";
+    e3.treatment_plan = "Ultrassom e exercícios de mobilidade";
+    p3.evaluations.push_back(e3);
+    repo.add_patient(p3);
 }
 
 int main() {
