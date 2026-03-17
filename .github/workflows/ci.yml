@@ -2,36 +2,49 @@ name: FisioTrack CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
 
 jobs:
-  build-backend:
+  backend_tests:
+    name: Backend Tests (C++)
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-    - name: Install dependencies
+    - name: Set up build environment
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake build-essential libsqlcipher-dev libssl-dev libgtest-dev
+        sudo apt-get install -y build-essential cmake libsqlite3-dev libssl-dev
 
-    - name: Configure CMake
+    - name: Build and Test Backend
       run: |
-        cd backend
-        mkdir build
-        cd build
+        mkdir backend/build
+        cd backend/build
         cmake ..
-
-    - name: Build
-      run: |
-        cd backend/build
         make -j$(nproc)
-
-    - name: Run Tests
-    # Apenas o backend por agora, pois o frontend não foi implementado
-      run: |
-        cd backend/build
         ./unit_tests
+
+  frontend_tests:
+    name: Frontend Tests (React)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+
+    - name: Install Frontend Dependencies
+      working-directory: ./frontend
+      run: npm install
+
+    - name: Run Frontend Tests
+      working-directory: ./frontend
+      run: npm test -- --watchAll=false
