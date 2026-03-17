@@ -185,6 +185,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
+  padding-top: 1rem;
 }
 
 .footer-actions {
@@ -192,22 +193,46 @@
   padding-top: 1.5rem;
 }
 
-.btn-cancel {
-  background: none;
-  border: 1px solid var(--unimed-border);
+.btn-cancel, .btn-primary, .btn-confirm-danger {
   padding: 0.7rem 1.5rem;
   border-radius: 4px;
   cursor: pointer;
-  color: #666;
   font-weight: 600;
+  font-size: 0.9rem;
+  min-width: 120px;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+
+.btn-cancel {
+  background: none;
+  border: 1px solid var(--unimed-border);
+  color: #666;
+}
+
+.btn-cancel:hover {
+  background-color: #f5f5f5;
 }
 
 .btn-primary {
   background-color: var(--unimed-green);
   color: white;
   border: none;
-  padding: 0.7rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background-color: var(--unimed-dark-green);
+}
+
+.btn-confirm-danger {
+  background-color: #d9534f;
+  color: white;
+  border: none;
+}
+
+.btn-confirm-danger:hover {
+  background-color: #c9302c;
 }
