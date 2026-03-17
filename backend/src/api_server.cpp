@@ -151,6 +151,35 @@ void ApiServer::setup_routes() {
         auto evals = m_repo->get_patient_evaluations(patient_id);
         res.set_content(json(evals).dump(), "application/json");
     });
+
+    // Atualizar uma avaliação específica
+    m_svr.Put(R"(/api/patients/(\d+)/evaluations/(\d+))", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            int patient_id = std::stoi(req.matches[1]);
+            int eval_id = std::stoi(req.matches[2]);
+            auto e = json::parse(req.body).get<Evaluation>();
+            e.id = eval_id;
+            e.patient_id = patient_id;
+            if (m_repo->update_evaluation(e)) {
+                res.status = 200;
+                res.set_content(json({{"status", "ok"}}).dump(), "application/json");
+            } else {
+                res.status = 500;
+            }
+        } catch (...) {
+            res.status = 400;
+        }
+    });
+
+    // Deletar uma avaliação específica
+    m_svr.Delete(R"(/api/patients/(\d+)/evaluations/(\d+))", [this](const httplib::Request& req, httplib::Response& res) {
+        int eval_id = std::stoi(req.matches[2]);
+        if (m_repo->delete_evaluation(eval_id)) {
+            res.set_content(json({{"status", "deleted"}}).dump(), "application/json");
+        } else {
+            res.status = 500;
+        }
+    });
 }
 
 } // namespace clinic

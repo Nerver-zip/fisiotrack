@@ -22,8 +22,12 @@ function App() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isEvalModalOpen, setIsEvalModalOpen] = useState(false);
+  const [isDeleteEvalModalOpen, setIsDeleteEvalModalOpen] = useState(false);
+
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [patientToEdit, setPatientToEdit] = useState<Patient | null>(null);
+  const [evaluationToEdit, setEvaluationToEdit] = useState<Evaluation | null>(null);
+  const [evaluationToDelete, setEvaluationToDelete] = useState<Evaluation | null>(null);
 
   const fetchPatients = async (query: string = '') => {
     try {
@@ -118,7 +122,6 @@ function App() {
         setIsFormModalOpen(false);
         setPatientToEdit(null);
         fetchPatients(searchTerm);
-        // Se estiver editando de dentro do prontuário, atualiza o paciente selecionado e reabre o prontuário
         if (isEdit && patient.id && selectedPatient?.id === patient.id) {
           fetchPatientWithHistory(patient.id);
         }
@@ -164,17 +167,27 @@ function App() {
 
   const saveEvaluation = async (evaluation: Evaluation) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/patients/${evaluation.patient_id}/evaluations`, {
-        method: 'POST',
+      const isEdit = !!evaluation.id;
+      const url = isEdit
+        ? `http://localhost:8080/api/patients/${evaluation.patient_id}/evaluations/${evaluation.id}`
+        : `http://localhost:8080/api/patients/${evaluation.patient_id}/evaluations`;
+
+      const response = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(evaluation)
       });
+
       if (response.ok) {
         setIsEvalModalOpen(false);
+        setEvaluationToEdit(null);
         if (selectedPatient?.id) fetchPatientWithHistory(selectedPatient.id);
+        fetchPatients(searchTerm); // Atualiza dashboard (diagnóstico pode ter mudado)
+      } else {
+        alert('Erro ao salvar avaliação');
       }
     } catch (err) {
-      alert('Erro ao salvar avaliação');
+      alert('Erro de conexão com o servidor');
     }
   };
 
@@ -194,6 +207,23 @@ function App() {
     }
   };
 
+  const confirmDeleteEvaluation = async () => {
+    if (!evaluationToDelete || !evaluationToDelete.id) return;
+    try {
+      const response = await fetch(`http://localhost:8080/api/patients/${evaluationToDelete.patient_id}/evaluations/${evaluationToDelete.id}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        setIsDeleteEvalModalOpen(false);
+        setEvaluationToDelete(null);
+        if (selectedPatient?.id) fetchPatientWithHistory(selectedPatient.id);
+        fetchPatients(searchTerm);
+      }
+    } catch (err) {
+      alert('Erro ao excluir entrada');
+    }
+  };
+
   const handleEditPatient = (patient: Patient) => {
     setIsDetailModalOpen(false);
     setPatientToEdit(patient);
@@ -202,11 +232,29 @@ function App() {
 
   const handleCloseForm = () => {
     setIsFormModalOpen(false);
-    // Se estava editando e cancelou, volta para o prontuário
     if (patientToEdit && selectedPatient) {
       setIsDetailModalOpen(true);
     }
     setPatientToEdit(null);
+  };
+
+  const handleEditEvaluation = (evaluation: Evaluation) => {
+    setIsDetailModalOpen(false);
+    setEvaluationToEdit(evaluation);
+    setIsEvalModalOpen(true);
+  };
+
+  const handleDeleteEvaluation = (evaluation: Evaluation) => {
+    setEvaluationToDelete(evaluation);
+    setIsDeleteEvalModalOpen(true);
+  };
+
+  const handleCloseEvalForm = () => {
+    setIsEvalModalOpen(false);
+    if (evaluationToEdit && selectedPatient) {
+      setIsDetailModalOpen(true);
+    }
+    setEvaluationToEdit(null);
   };
 
   return (
@@ -313,16 +361,19 @@ function App() {
         isOpen={isEvalModalOpen}
         patientId={selectedPatient?.id || null}
         patientBirthDate={selectedPatient?.birth_date || ''}
-        onClose={() => setIsEvalModalOpen(false)}
+        onClose={handleCloseEvalForm}
         onSave={saveEvaluation}
+        evaluationToEdit={evaluationToEdit}
       />
 
       <PatientDetailModal 
         isOpen={isDetailModalOpen}
         patient={selectedPatient}
         onClose={() => setIsDetailModalOpen(false)}
-        onAddEvaluation={() => { setIsDetailModalOpen(false); setIsEvalModalOpen(true); }}
+        onAddEvaluation={(pid) => { setIsDetailModalOpen(false); setEvaluationToEdit(null); setIsEvalModalOpen(true); }}
         onEditPatient={handleEditPatient}
+        onEditEvaluation={handleEditEvaluation}
+        onDeleteEvaluation={handleDeleteEvaluation}
       />
 
       <ConfirmationModal 
@@ -333,6 +384,16 @@ function App() {
         cancelText="Voltar"
         onConfirm={confirmDelete}
         onCancel={() => setIsDeleteModalOpen(false)}
+      />
+
+      <ConfirmationModal 
+        isOpen={isDeleteEvalModalOpen}
+        title="Excluir Entrada Clínica"
+        message={`Tem certeza que deseja excluir permanentemente esta entrada de ${formatDate(evaluationToDelete?.evaluation_date || '')}? Esta ação não pode ser desfeita.`}
+        confirmText="Excluir"
+        cancelText="Voltar"
+        onConfirm={confirmDeleteEvaluation}
+        onCancel={() => setIsDeleteEvalModalOpen(false)}
       />
     </div>
   );

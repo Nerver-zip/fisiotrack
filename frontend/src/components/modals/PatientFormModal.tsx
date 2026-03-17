@@ -263,6 +263,18 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
         onClose={() => setIsConfirmModalOpen(false)}
         onConfirm={handleConfirmSave}
         changedFields={changedFields}
+        fieldLabels={{
+          healthcare_id: 'ID Convênio / SUS',
+          name: 'Nome Completo',
+          mom_name: 'Nome da Mãe',
+          birth_date: 'Data de Nascimento',
+          cpf: 'CPF',
+          gender: 'Sexo',
+          address: 'Endereço',
+          profession: 'Profissão',
+          phone: 'Telefones'
+        }}
+        title="Confirmar Alterações Cadastrais"
       />
     </>
   );

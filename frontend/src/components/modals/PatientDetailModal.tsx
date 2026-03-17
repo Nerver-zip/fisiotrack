@@ -9,9 +9,19 @@ interface PatientDetailModalProps {
   onClose: () => void;
   onAddEvaluation: (patientId: number) => void;
   onEditPatient: (patient: Patient) => void;
+  onEditEvaluation: (evaluation: Evaluation) => void;
+  onDeleteEvaluation: (evaluation: Evaluation) => void;
 }
 
-const PatientDetailModal: React.FC<PatientDetailModalProps> = ({ isOpen, patient, onClose, onAddEvaluation, onEditPatient }) => {
+const PatientDetailModal: React.FC<PatientDetailModalProps> = ({ 
+  isOpen, 
+  patient, 
+  onClose, 
+  onAddEvaluation, 
+  onEditPatient,
+  onEditEvaluation,
+  onDeleteEvaluation
+}) => {
   const [selectedEvalId, setSelectedEvalId] = useState<number | null>(null);
 
   if (!isOpen || !patient) return null;
@@ -54,7 +64,7 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({ isOpen, patient
 
           <section className="detail-section">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3>📅 Histórico de Entradas</h3>
+              <h3 style={{ borderLeft: '4px solid var(--unimed-green)', paddingLeft: '10px' }}>📅 Histórico de Entradas</h3>
               <button 
                 className="btn-primary" 
                 style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
@@ -84,7 +94,24 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({ isOpen, patient
           {currentEval && (
             <div className="evaluation-content">
               <section className="detail-section">
-                <h3>🏥 Informações da Entrada ({formatDate(currentEval.evaluation_date)})</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3 style={{ borderLeft: '4px solid var(--unimed-green)', paddingLeft: '10px' }}>🏥 Informações da Entrada ({formatDate(currentEval.evaluation_date)})</h3>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      className="btn-edit" 
+                      onClick={() => onEditEvaluation(currentEval)}
+                    >
+                      ✏️ Editar
+                    </button>
+                    <button 
+                      className="btn-confirm-danger" 
+                      style={{ minWidth: '80px', fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+                      onClick={() => onDeleteEvaluation(currentEval)}
+                    >
+                      🗑️ Excluir
+                    </button>
+                  </div>
+                </div>
                 <div className="detail-grid">
                   <p><strong>Médico:</strong> {currentEval.doctor || ''}</p>
                   <p><strong>Idade na data:</strong> {calculateAge(patient.birth_date, currentEval.evaluation_date)} anos</p>
