@@ -20,7 +20,6 @@ O arquivo de importação deve ser um arquivo `.json` contendo um array de objet
     "evaluations": [
       {
         "evaluation_date": "2024-01-10",
-        "age": 43,
         "doctor": "Dr. Arnaldo",
         "medical_diagnosis": "Cervicalgia",
         "chief_complaint": "Dor no pescoço há 2 semanas",
