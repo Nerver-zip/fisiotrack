@@ -1,19 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Evaluation } from '../../types';
+import { calculateAge } from '../../utils'; // Importa a função calculateAge
 import './Modal.css';
 
 interface EvaluationFormModalProps {
   isOpen: boolean;
   patientId: number | null;
+  patientBirthDate: string; // Adiciona a data de nascimento do paciente
   onClose: () => void;
   onSave: (evaluation: Evaluation) => void;
 }
 
-const EvaluationFormModal: React.FC<EvaluationFormModalProps> = ({ isOpen, patientId, onClose, onSave }) => {
+const EvaluationFormModal: React.FC<EvaluationFormModalProps> = ({ isOpen, patientId, patientBirthDate, onClose, onSave }) => {
   const initialEval: Evaluation = {
     patient_id: patientId || 0,
     evaluation_date: new Date().toISOString().split('T')[0],
-    age: 0,
     doctor: '',
     medical_diagnosis: '',
     chief_complaint: '',
@@ -26,12 +27,13 @@ const EvaluationFormModal: React.FC<EvaluationFormModalProps> = ({ isOpen, patie
   };
 
   const [formData, setFormData] = useState<Evaluation>(initialEval);
+  const currentAge = calculateAge(patientBirthDate, formData.evaluation_date);
 
   if (!isOpen || !patientId) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: name === 'age' ? parseInt(value) || 0 : value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -57,8 +59,8 @@ const EvaluationFormModal: React.FC<EvaluationFormModalProps> = ({ isOpen, patie
                 <input id="eval_date" type="date" name="evaluation_date" value={formData.evaluation_date} onChange={handleChange} required />
               </div>
               <div className="form-group">
-                <label htmlFor="eval_age">Idade na Data</label>
-                <input id="eval_age" type="number" name="age" value={formData.age} onChange={handleChange} />
+                <label htmlFor="eval_age_display">Idade</label>
+                <input id="eval_age_display" type="number" value={currentAge} readOnly />
               </div>
               <div className="form-group">
                 <label htmlFor="eval_doctor">Médico Solicitante</label>

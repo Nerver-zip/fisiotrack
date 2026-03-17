@@ -21,7 +21,6 @@ interface PatientFormData {
   phone: string; // Capturamos como string (ex: "11999999999, 11888888888")
   // Campos da Avaliação
   evaluation_date: string;
-  age: number;
   doctor: string;
   medical_diagnosis: string;
   chief_complaint: string;
@@ -33,12 +32,24 @@ interface PatientFormData {
   treatment_plan: string;
 }
 
+const calculateAge = (birthDate: string, evaluationDate: string): number => {
+  if (!birthDate || !evaluationDate) return 0;
+  const birth = new Date(birthDate + 'T00:00:00'); // Add T00:00:00 to avoid timezone issues
+  const evaluation = new Date(evaluationDate + 'T00:00:00');
+  
+  let age = evaluation.getFullYear() - birth.getFullYear();
+  const m = evaluation.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && evaluation.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+};
+
 const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, onSave }) => {
   const initialFormData: PatientFormData = {
     healthcare_id: '', name: '', mom_name: '', cpf: '', 
     birth_date: '', gender: 'Masculino', address: '', profession: '', phone: '',
     evaluation_date: new Date().toISOString().split('T')[0],
-    age: 0,
     doctor: '',
     medical_diagnosis: '', 
     chief_complaint: '', 
@@ -51,12 +62,13 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
   };
 
   const [formData, setFormData] = useState<PatientFormData>(initialFormData);
+  const currentAge = calculateAge(formData.birth_date, formData.evaluation_date);
 
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: name === 'age' ? parseInt(value) || 0 : value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -80,7 +92,6 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
         {
           patient_id: 0, // Será preenchido pelo backend
           evaluation_date: formData.evaluation_date,
-          age: formData.age,
           doctor: formData.doctor,
           medical_diagnosis: formData.medical_diagnosis,
           chief_complaint: formData.chief_complaint,
@@ -123,8 +134,8 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
                 <input id="mom_name" type="text" name="mom_name" value={formData.mom_name} onChange={handleChange} />
               </div>
               <div className="form-group">
-                <label htmlFor="age">Idade</label>
-                <input id="age" type="number" name="age" value={formData.age} onChange={handleChange} />
+                <label htmlFor="age_display">Idade</label>
+                <input id="age_display" type="number" value={currentAge} readOnly />
               </div>
               <div className="form-group">
                 <label htmlFor="cpf">CPF</label>
@@ -163,6 +174,10 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
               <div className="form-group">
                 <label htmlFor="doctor">Médico Solicitante</label>
                 <input id="doctor" type="text" name="doctor" value={formData.doctor} onChange={handleChange} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="evaluation_date">Data da Avaliação</label>
+                <input id="evaluation_date" type="date" name="evaluation_date" value={formData.evaluation_date} onChange={handleChange} />
               </div>
               <div className="form-group">
                 <label htmlFor="medical_diagnosis">Diagnóstico Médico</label>

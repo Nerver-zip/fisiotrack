@@ -232,6 +232,7 @@ function App() {
       <EvaluationFormModal 
         isOpen={isEvalModalOpen}
         patientId={selectedPatient?.id || null}
+        patientBirthDate={selectedPatient?.birth_date || ''}
         onClose={() => setIsEvalModalOpen(false)}
         onSave={saveEvaluation}
       />

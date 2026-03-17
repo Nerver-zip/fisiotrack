@@ -36,7 +36,6 @@ protected:
 
         Evaluation e;
         e.evaluation_date = "2024-03-11";
-        e.age = 30;
         e.doctor = "Dr. Smith";
         e.medical_diagnosis = "Cervicalgia";
         e.chief_complaint = "Dor no pescoço";
@@ -77,7 +76,6 @@ TEST_F(PatientCRUDTest, CanAddAndRetrieveFullPatientInfo) {
     ASSERT_EQ(retrieved.evaluations.size(), 1);
     EXPECT_EQ(retrieved.evaluations[0].medical_diagnosis, p.evaluations[0].medical_diagnosis);
     EXPECT_EQ(retrieved.evaluations[0].treatment_plan, p.evaluations[0].treatment_plan);
-    EXPECT_EQ(retrieved.evaluations[0].age, 30);
 }
 
 TEST_F(PatientCRUDTest, CanUpdateAllFields) {
@@ -122,7 +120,6 @@ TEST_F(PatientCRUDTest, CanOpenCiphered) {
     const std::string correct_pass = "mypassword";
     std::filesystem::remove(db_test);
 
-    // Cria e fecha um banco criptografado
     {
         auto db = std::make_unique<SqliteDatabase>();
         ASSERT_TRUE(db->open(db_test, correct_pass));
@@ -131,7 +128,6 @@ TEST_F(PatientCRUDTest, CanOpenCiphered) {
         db->close();
     }
 
-    // Reabre com a senha correta
     {
         auto db = std::make_unique<SqliteDatabase>();
         ASSERT_TRUE(db->open(db_test, correct_pass));
@@ -164,7 +160,6 @@ TEST_F(PatientCRUDTest, PersistenceBetweenSessions) {
     const std::string test_pass = "secure_password";
     std::filesystem::remove(db_encrypted);
     
-    // Insere dados em uma sessão criptografada
     {
         auto database1 = std::make_unique<SqliteDatabase>();
         PatientRepository repo1(std::move(database1));
@@ -172,7 +167,6 @@ TEST_F(PatientCRUDTest, PersistenceBetweenSessions) {
         repo1.add_patient(create_sample_patient("PersistCryptoTest"));
     }
     
-    // Tenta ler em outra sessão com a mesma chave
     {
         auto database2 = std::make_unique<SqliteDatabase>();
         PatientRepository repo2(std::move(database2));
@@ -182,11 +176,9 @@ TEST_F(PatientCRUDTest, PersistenceBetweenSessions) {
         EXPECT_EQ(all[0].name, "PersistCryptoTest");
     }
     
-    // Tenta ler com a chave ERRADA (deve falhar a inicialização ou a leitura)
     {
         auto database3 = std::make_unique<SqliteDatabase>();
         PatientRepository repo3(std::move(database3));
-        // A inicialização deve falhar devido ao cheque de autenticação que inserimos no open()
         EXPECT_FALSE(repo3.initialize(db_encrypted, "wrong_password"));
     }
 
@@ -198,12 +190,10 @@ TEST_F(PatientCRUDTest, RejectUpdateWithoutId) {
     EXPECT_FALSE(repo->update_patient(p));
 }
 
-// --- Novos Testes de Edge Cases (Sprint 5) ---
-
 TEST_F(PatientCRUDTest, PatientWithZeroPhones) {
     Patient p;
     p.name = "No Phone Patient";
-    p.phone = {}; // Lista vazia
+    p.phone = {};
     ASSERT_TRUE(repo->add_patient(p));
     
     auto all = repo->get_all_patients();
@@ -234,7 +224,6 @@ TEST_F(PatientCRUDTest, UpdatePhones_AddAndRemove) {
     auto all = repo->get_all_patients();
     p = *repo->get_patient(*all[0].id);
     
-    // Altera telefones: remove Old1, mantém Keep, adiciona New1
     p.phone = {"Keep", "New1"};
     ASSERT_TRUE(repo->update_patient(p));
     
@@ -253,7 +242,7 @@ TEST_F(PatientCRUDTest, UpdatePhones_ClearAll) {
     auto all = repo->get_all_patients();
     p = *repo->get_patient(*all[0].id);
     
-    p.phone = {}; // Limpa tudo
+    p.phone = {};
     ASSERT_TRUE(repo->update_patient(p));
     
     auto updated = repo->get_patient(*p.id);
@@ -273,7 +262,6 @@ TEST_F(PatientCRUDTest, PatientWithMultipleEvaluationsInTransaction) {
     auto all = repo->get_all_patients();
     auto retrieved = repo->get_patient(*all[0].id);
     ASSERT_EQ(retrieved->evaluations.size(), 2);
-    // Verificando ordem DESC (padrão do SQL implementado)
     EXPECT_EQ(retrieved->evaluations[0].evaluation_date, "2024-02-01");
 }
 
@@ -299,23 +287,20 @@ TEST_F(PatientCRUDTest, DeletePatientCascadeCheck) {
     repo->add_patient(p);
     int pid = *repo->get_all_patients()[0].id;
     
-    // Verifica se tem avaliação e telefone antes
     auto retrieved = repo->get_patient(pid);
     ASSERT_FALSE(retrieved->phone.empty());
     ASSERT_FALSE(retrieved->evaluations.empty());
     
     ASSERT_TRUE(repo->delete_patient(pid));
     
-    // Se o cascade funcionar, não deve haver órfãos (testamos tentando buscar avaliações)
     auto evals = repo->get_patient_evaluations(pid);
     EXPECT_TRUE(evals.empty());
 }
 
 TEST_F(PatientCRUDTest, ForeignKeysWork_AddEvalToNonExistentPatient) {
     Evaluation e;
-    e.patient_id = 999999; // ID inexistente
+    e.patient_id = 999999;
     e.evaluation_date = "2024-01-01";
-    // O SQLite com FK ativado deve falhar. Se não estiver, o teste falha mas nos avisa.
     EXPECT_FALSE(repo->add_evaluation(e));
 }
 
@@ -334,7 +319,6 @@ TEST_F(PatientCRUDTest, EvaluationsOrderingByDate) {
     
     auto retrieved = repo->get_patient(pid);
     ASSERT_EQ(retrieved->evaluations.size(), 3);
-    // Ordem esperada: 2024-01-20, 2024-01-10, 2024-01-05
     EXPECT_EQ(retrieved->evaluations[0].evaluation_date, "2024-01-20");
     EXPECT_EQ(retrieved->evaluations[1].evaluation_date, "2024-01-10");
     EXPECT_EQ(retrieved->evaluations[2].evaluation_date, "2024-01-05");
@@ -351,14 +335,14 @@ TEST_F(PatientCRUDTest, UpdateSpecificEvaluationAndIsolation) {
     repo->add_evaluation(e2);
     
     auto evals = repo->get_patient_evaluations(pid);
-    Evaluation to_update = evals[0]; // "Orig2" (mais recente)
+    Evaluation to_update = evals[0];
     to_update.medical_diagnosis = "Updated2";
     
     ASSERT_TRUE(repo->update_evaluation(to_update));
     
     auto updated_evals = repo->get_patient_evaluations(pid);
     EXPECT_EQ(updated_evals[0].medical_diagnosis, "Updated2");
-    EXPECT_EQ(updated_evals[1].medical_diagnosis, "Orig1"); // Isolamento mantido
+    EXPECT_EQ(updated_evals[1].medical_diagnosis, "Orig1");
 }
 
 } // namespace clinic

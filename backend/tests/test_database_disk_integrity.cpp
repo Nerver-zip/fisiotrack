@@ -57,7 +57,6 @@ TEST_F(DatabaseDiskTest, DataPersistsAfterClosing) {
         
         Evaluation e;
         e.evaluation_date = "2024-03-11";
-        e.age = 40;
         e.doctor = "Dr";
         e.medical_diagnosis = "Diag";
         e.chief_complaint = "Queixa";

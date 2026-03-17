@@ -58,7 +58,7 @@ TEST_F(ImportLogicTest, ImportMergesCorrectlyAndRespectsAllFields) {
     p3.evaluations.push_back(e3);
     import_data.push_back(p3);
 
-    // 2. Executa a importação (a ser implementado no repositório)
+    // 2. Executa a importação
     repo->import_patients(import_data);
 
     // 3. Verifica os resultados
@@ -70,18 +70,18 @@ TEST_F(ImportLogicTest, ImportMergesCorrectlyAndRespectsAllFields) {
     ASSERT_EQ(joao_list.size(), 1);
     auto joao_full = repo->get_patient(*joao_list[0].id);
 
-    // Verifica dados cadastrais (devem ser da primeira ocorrência)
+    // Verifica dados cadastrais
     EXPECT_EQ(joao_full->healthcare_id, "SUS-999");
     EXPECT_EQ(joao_full->profession, "Engenheiro");
 
-    // Verifica telefones (devem ser unificados)
+    // Verifica telefones
     ASSERT_EQ(joao_full->phone.size(), 2);
     EXPECT_NE(std::find(joao_full->phone.begin(), joao_full->phone.end(), "111"), joao_full->phone.end());
     EXPECT_NE(std::find(joao_full->phone.begin(), joao_full->phone.end(), "333"), joao_full->phone.end());
 
-    // Verifica avaliações (devem ser acumuladas)
+    // Verifica avaliações
     ASSERT_EQ(joao_full->evaluations.size(), 2);
-    EXPECT_EQ(joao_full->evaluations[0].evaluation_date, "2024-02-15"); // Ordenado por data
+    EXPECT_EQ(joao_full->evaluations[0].evaluation_date, "2024-02-15");
     EXPECT_EQ(joao_full->evaluations[1].evaluation_date, "2024-01-10");
 }
 

@@ -2,7 +2,6 @@ export interface Evaluation {
   id?: number;
   patient_id: number;
   evaluation_date: string;
-  age: number;
   doctor: string;
   medical_diagnosis: string;
   chief_complaint: string;

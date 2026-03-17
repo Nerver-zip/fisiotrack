@@ -23,7 +23,6 @@ describe('PatientFormModal', () => {
     expect(screen.getByLabelText(/^ID Convênio \/ SUS/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Nome Completo/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Nome da Mãe/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Idade$/i)).toBeInTheDocument(); // Match exato para "Idade"
     expect(screen.getByLabelText(/^CPF/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Sexo/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Nascimento/i)).toBeInTheDocument();
@@ -55,7 +54,10 @@ describe('PatientFormModal', () => {
     fireEvent.change(screen.getByLabelText(/^Nome Completo/i), { target: { value: 'João Silva' } });
     fireEvent.change(screen.getByLabelText(/^Telefone/i), { target: { value: '11999998888, 11777776666' } });
     fireEvent.change(screen.getByLabelText(/^Diagnóstico Médico/i), { target: { value: 'Artrite' } });
-    
+    // Assume birth_date is set to something that results in a known age for the current evaluation_date
+    fireEvent.change(screen.getByLabelText(/^Nascimento/i), { target: { value: '1990-01-01' } });
+    fireEvent.change(screen.getByLabelText(/^Data da Avaliação$/i), { target: { value: '2024-03-16' } }); // Assuming today's date for calculation context
+
     fireEvent.submit(screen.getByRole('button', { name: /Salvar Ficha/i }));
 
     expect(mockOnSave).toHaveBeenCalledTimes(1);
@@ -65,5 +67,6 @@ describe('PatientFormModal', () => {
     expect(savedPatient.phone).toEqual(['11999998888', '11777776666']);
     expect(savedPatient.evaluations).toHaveLength(1);
     expect(savedPatient.evaluations[0].medical_diagnosis).toBe('Artrite');
+    expect(savedPatient.evaluations[0].age).toBeUndefined();
   });
 });

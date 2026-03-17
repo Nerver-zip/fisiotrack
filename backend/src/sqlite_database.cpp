@@ -49,7 +49,6 @@ bool SqliteDatabase::open(const std::string& db_path, const std::string& key) {
                                   "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                                   "patient_id INTEGER NOT NULL,"
                                   "evaluation_date TEXT NOT NULL,"
-                                  "age INTEGER,"
                                   "doctor TEXT,"
                                   "medical_diagnosis TEXT,"
                                   "chief_complaint TEXT,"
@@ -343,24 +342,23 @@ bool SqliteDatabase::delete_patient(int id) {
 // --- Implementação de Avaliações ---
 
 bool SqliteDatabase::add_evaluation(const Evaluation& e) {
-    const char* sql = "INSERT INTO evaluations (patient_id, evaluation_date, age, doctor, medical_diagnosis, chief_complaint, "
+    const char* sql = "INSERT INTO evaluations (patient_id, evaluation_date, doctor, medical_diagnosis, chief_complaint, "
                       "history_present_illness, past_medical_history, medications, habits_activities, physical_exam, treatment_plan) "
-                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
 
     sqlite3_bind_int(stmt, 1, e.patient_id);
     sqlite3_bind_text(stmt, 2, e.evaluation_date.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 3, e.age);
-    sqlite3_bind_text(stmt, 4, e.doctor.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 5, e.medical_diagnosis.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 6, e.chief_complaint.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 7, e.history_present_illness.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 8, e.past_medical_history.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 9, e.medications.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 10, e.habits_activities.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 11, e.physical_exam.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 12, e.treatment_plan.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, e.doctor.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, e.medical_diagnosis.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 5, e.chief_complaint.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 6, e.history_present_illness.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 7, e.past_medical_history.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 8, e.medications.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 9, e.habits_activities.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 10, e.physical_exam.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 11, e.treatment_plan.c_str(), -1, SQLITE_TRANSIENT);
 
     bool success = (sqlite3_step(stmt) == SQLITE_DONE);
     sqlite3_finalize(stmt);
@@ -381,8 +379,8 @@ std::vector<Evaluation> SqliteDatabase::get_patient_evaluations(int patient_id) 
         };
         evaluations.push_back(Evaluation{
             sqlite3_column_int(stmt, 0), sqlite3_column_int(stmt, 1),
-            get_text(2), sqlite3_column_int(stmt, 3), get_text(4), get_text(5),
-            get_text(6), get_text(7), get_text(8), get_text(9), get_text(10), get_text(11), get_text(12)
+            get_text(2), get_text(3), get_text(4), get_text(5),
+            get_text(6), get_text(7), get_text(8), get_text(9), get_text(10), get_text(11)
         });
     }
     sqlite3_finalize(stmt);
@@ -391,24 +389,23 @@ std::vector<Evaluation> SqliteDatabase::get_patient_evaluations(int patient_id) 
 
 bool SqliteDatabase::update_evaluation(const Evaluation& e) {
     if (!e.id) return false;
-    const char* sql = "UPDATE evaluations SET evaluation_date=?, age=?, doctor=?, medical_diagnosis=?, chief_complaint=?, "
+    const char* sql = "UPDATE evaluations SET evaluation_date=?, doctor=?, medical_diagnosis=?, chief_complaint=?, "
                       "history_present_illness=?, past_medical_history=?, medications=?, habits_activities=?, physical_exam=?, treatment_plan=? "
                       "WHERE id=?;";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
 
     sqlite3_bind_text(stmt, 1, e.evaluation_date.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 2, e.age);
-    sqlite3_bind_text(stmt, 3, e.doctor.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 4, e.medical_diagnosis.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 5, e.chief_complaint.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 6, e.history_present_illness.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 7, e.past_medical_history.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 8, e.medications.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 9, e.habits_activities.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 10, e.physical_exam.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 11, e.treatment_plan.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 12, *e.id);
+    sqlite3_bind_text(stmt, 2, e.doctor.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, e.medical_diagnosis.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, e.chief_complaint.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 5, e.history_present_illness.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 6, e.past_medical_history.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 7, e.medications.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 8, e.habits_activities.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 9, e.physical_exam.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 10, e.treatment_plan.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 11, *e.id);
 
     bool success = (sqlite3_step(stmt) == SQLITE_DONE);
     sqlite3_finalize(stmt);

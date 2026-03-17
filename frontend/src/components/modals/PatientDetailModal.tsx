@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Patient, Evaluation } from '../../types';
-import { formatDate } from '../../utils';
+import { formatDate, calculateAge } from '../../utils';
 import './Modal.css';
 
 interface PatientDetailModalProps {
@@ -78,7 +78,7 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({ isOpen, patient
                 <h3>🏥 Informações da Entrada ({formatDate(currentEval.evaluation_date)})</h3>
                 <div className="detail-grid">
                   <p><strong>Médico:</strong> {currentEval.doctor || ''}</p>
-                  <p><strong>Idade na data:</strong> {currentEval.age || ''} anos</p>
+                  <p><strong>Idade na data:</strong> {calculateAge(patient.birth_date, currentEval.evaluation_date)} anos</p>
                   <p><strong>Diagnóstico Médico:</strong> {currentEval.medical_diagnosis || ''}</p>
                 </div>
               </section>

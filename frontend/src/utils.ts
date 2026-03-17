@@ -12,3 +12,16 @@ export const formatDate = (dateStr: string | undefined): string => {
   
   return dateStr;
 };
+
+export const calculateAge = (birthDate: string, evaluationDate: string): number => {
+  if (!birthDate || !evaluationDate) return 0;
+  const birth = new Date(birthDate + 'T00:00:00'); // Add T00:00:00 to avoid timezone issues
+  const evaluation = new Date(evaluationDate + 'T00:00:00');
+  
+  let age = evaluation.getFullYear() - birth.getFullYear();
+  const m = evaluation.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && evaluation.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+};

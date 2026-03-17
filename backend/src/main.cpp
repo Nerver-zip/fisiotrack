@@ -43,7 +43,6 @@ void seed_if_needed(PatientRepository& repo) {
     
     Evaluation e1;
     e1.evaluation_date = "2026-03-11";
-    e1.age = 65;
     e1.doctor = "Dr. Arnaldo";
     e1.medical_diagnosis = "Artrite Reumatoide";
     e1.chief_complaint = "Dor crônica nos joelhos";
@@ -66,11 +65,10 @@ void seed_if_needed(PatientRepository& repo) {
     p2.gender = "Feminino";
     p2.address = "Av. Paulista, 1500";
     p2.profession = "Advogada";
-    p1.phone = {"11988776655"};
+    p2.phone = {"11988776655"};
 
     Evaluation e2;
     e2.evaluation_date = "2026-03-15";
-    e2.age = 40;
     e2.doctor = "Dra. Beatriz";
     e2.medical_diagnosis = "Hérnia de Disco Lombar";
     e2.chief_complaint = "Dor irradiada para perna direita";
@@ -97,7 +95,6 @@ void seed_if_needed(PatientRepository& repo) {
 
     Evaluation e3;
     e3.evaluation_date = "2026-02-10";
-    e3.age = 47;
     e3.doctor = "Dr. Carlos";
     e3.medical_diagnosis = "Tendinite de Ombro";
     e3.chief_complaint = "Dor ao elevar o braço";
