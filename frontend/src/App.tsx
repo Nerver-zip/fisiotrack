@@ -155,30 +155,33 @@ function App() {
       <main className="main-content">
         <div className="card">
           <form className="search-bar" onSubmit={handleSearch}>
-            <input 
-              type="text" 
-              placeholder="Buscar paciente por nome..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <button type="submit" className="btn-primary">Buscar</button>
-            <button 
-              type="button" 
-              className="btn-primary" 
-              style={{ backgroundColor: 'var(--unimed-dark-green)' }}
-              onClick={() => setIsFormModalOpen(true)}
-            >
-              + Novo Paciente
-            </button>
-            <label className="btn-primary" style={{ backgroundColor: '#5bc0de', cursor: 'pointer', display: 'inline-block', lineHeight: 'normal' }}>
-              📥 Importar JSON
+            <div className="search-group">
               <input 
-                type="file" 
-                accept=".json" 
-                onChange={handleImportJson} 
-                style={{ display: 'none' }}
+                type="text" 
+                placeholder="Buscar paciente por nome..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
-            </label>
+              <button type="submit" className="btn-primary">Buscar</button>
+            </div>
+            <div className="action-buttons">
+              <button 
+                type="button" 
+                className="btn-primary btn-new-patient" 
+                onClick={() => setIsFormModalOpen(true)}
+              >
+                + Novo Paciente
+              </button>
+              <label className="btn-primary btn-import">
+                { '{ }' } Importar JSON
+                <input 
+                  type="file" 
+                  accept=".json" 
+                  onChange={handleImportJson} 
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
           </form>
 
           {error && <div style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}

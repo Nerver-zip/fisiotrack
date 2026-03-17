@@ -83,6 +83,33 @@ body {
   border: 1px solid var(--unimed-border);
 }
 
+/* Botões e Barra de Busca */
+.search-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 3rem; /* Aumentado o gap entre busca e ações */
+  margin-bottom: 2rem;
+}
+
+.search-group {
+  display: flex;
+  flex: 1;
+  gap: 0.5rem;
+}
+
+.search-group input {
+  flex: 1;
+  padding: 0.8rem;
+  border: 1px solid var(--unimed-border);
+  border-radius: 4px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+}
+
 .btn-primary {
   background-color: var(--unimed-green);
   color: white;
@@ -91,22 +118,32 @@ body {
   border-radius: 4px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 0.9rem; /* Tamanho de fonte unificado */
   transition: background-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: normal;
+  text-align: center;
 }
 
 .btn-primary:hover {
   background-color: var(--unimed-dark-green);
 }
 
-.search-bar {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
+.btn-new-patient {
+  background-color: var(--unimed-dark-green);
 }
 
-.search-bar input {
-  flex: 1;
-  padding: 0.8rem;
-  border: 1px solid var(--unimed-border);
-  border-radius: 4px;
+.btn-new-patient:hover {
+  background-color: #004d26;
+}
+
+.btn-import {
+  background-color: var(--unimed-green);
+  color: white;
+}
+
+.btn-import:hover {
+  background-color: var(--unimed-dark-green);
 }

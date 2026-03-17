@@ -10,7 +10,6 @@ lib/
 compile_commands.json
 
 # --- Banco de Dados e Segurança ---
-# NUNCA commite o arquivo de banco de dados real ou arquivos de teste
 *.db
 *.sqlite
 *.enc
@@ -25,6 +24,7 @@ secret.key
 *.swp
 *.swo
 .gemini
+.geminiignore
 
 # --- Frontend (Node.js) ---
 frontend/node_modules/
