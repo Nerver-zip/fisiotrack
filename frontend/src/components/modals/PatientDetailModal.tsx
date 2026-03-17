@@ -33,8 +33,7 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({ isOpen, patient
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ borderLeft: '4px solid var(--unimed-green)', paddingLeft: '10px' }}>📍 Dados Cadastrais</h3>
               <button 
-                className="btn-primary" 
-                style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', backgroundColor: 'var(--unimed-dark-green)' }}
+                className="btn-edit" 
                 onClick={() => onEditPatient(patient)}
               >
                 ✏️ Editar Dados

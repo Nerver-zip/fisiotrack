@@ -193,7 +193,7 @@
   padding-top: 1.5rem;
 }
 
-.btn-cancel, .btn-primary, .btn-confirm-danger {
+.btn-cancel, .btn-primary, .btn-confirm-danger, .btn-edit {
   padding: 0.7rem 1.5rem;
   border-radius: 4px;
   cursor: pointer;
@@ -205,6 +205,19 @@
   align-items: center;
   justify-content: center;
   font-family: inherit;
+}
+
+.btn-edit {
+  background-color: #0275d8;
+  color: white;
+  border: none;
+  min-width: 100px; /* Um pouco menor para caber melhor no cabeçalho */
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.btn-edit:hover {
+  background-color: #025aa5;
 }
 
 .btn-cancel {

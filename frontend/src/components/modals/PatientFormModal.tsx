@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Patient, Evaluation } from '../../types';
 import { calculateAge } from '../../utils';
+import EditConfirmationModal from './EditConfirmationModal';
 import './Modal.css';
 
 interface PatientFormModalProps {
@@ -21,7 +22,6 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
     address: '',
     profession: '',
     phone: '',
-    // Campos da avaliação inicial (apenas para novo paciente)
     evaluation_date: new Date().toISOString().split('T')[0],
     doctor: '',
     medical_diagnosis: '',
@@ -35,6 +35,9 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
   };
 
   const [formData, setFormData] = useState(initialFormState);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [changedFields, setChangedFields] = useState<string[]>([]);
+  const [pendingPatientData, setPendingPatientData] = useState<Patient | null>(null);
 
   useEffect(() => {
     if (patientToEdit) {
@@ -53,6 +56,7 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
     } else {
       setFormData(initialFormState);
     }
+    setIsConfirmModalOpen(false);
   }, [patientToEdit, isOpen]);
 
   if (!isOpen) return null;
@@ -100,123 +104,167 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
       ]
     };
 
-    onSave(patientData);
+    if (patientToEdit) {
+      // Detectar mudanças
+      const changes: string[] = [];
+      const fieldsToCompare: (keyof Patient)[] = ['healthcare_id', 'name', 'mom_name', 'birth_date', 'cpf', 'gender', 'address', 'profession'];
+      
+      fieldsToCompare.forEach(field => {
+        if (patientData[field] !== (patientToEdit[field] || '')) {
+          changes.push(field);
+        }
+      });
+
+      // Comparar telefones
+      const oldPhones = [...(patientToEdit.phone || [])].sort().join(',');
+      const newPhones = [...(patientData.phone || [])].sort().join(',');
+      if (oldPhones !== newPhones) {
+        changes.push('phone');
+      }
+
+      if (changes.length === 0) {
+        onClose(); // Nenhuma mudança, apenas fecha
+        return;
+      }
+
+      setChangedFields(changes);
+      setPendingPatientData(patientData);
+      setIsConfirmModalOpen(true);
+    } else {
+      onSave(patientData);
+    }
+  };
+
+  const handleConfirmSave = () => {
+    if (pendingPatientData) {
+      onSave(pendingPatientData);
+      setIsConfirmModalOpen(false);
+    }
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content detail-modal">
-        <div className="modal-header">
-          <h2 className="modal-title">{patientToEdit ? 'Editar Dados Cadastrais' : 'Nova Ficha de Paciente'}</h2>
-          <button className="btn-close" onClick={onClose}>&times;</button>
-        </div>
+    <>
+      <div className="modal-overlay">
+        <div className="modal-content detail-modal">
+          <div className="modal-header">
+            <h2 className="modal-title">{patientToEdit ? 'Editar Dados Cadastrais' : 'Nova Ficha de Paciente'}</h2>
+            <button className="btn-close" onClick={onClose}>&times;</button>
+          </div>
 
-        <form onSubmit={handleSubmit} className="modal-body-scroll">
-          <section className="form-section">
-            <h3>📍 Identificação</h3>
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="healthcare_id">ID Convênio / SUS</label>
-                <input id="healthcare_id" type="text" name="healthcare_id" value={formData.healthcare_id} onChange={handleChange} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="name">Nome Completo</label>
-                <input id="name" type="text" name="name" value={formData.name} onChange={handleChange} required />
-              </div>
-              <div className="form-group">
-                <label htmlFor="mom_name">Nome da Mãe</label>
-                <input id="mom_name" type="text" name="mom_name" value={formData.mom_name} onChange={handleChange} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="age_display">Idade</label>
-                <input id="age_display" type="number" value={currentAge} readOnly />
-              </div>
-              <div className="form-group">
-                <label htmlFor="cpf">CPF</label>
-                <input id="cpf" type="text" name="cpf" value={formData.cpf} onChange={handleChange} placeholder="000.000.000-00" />
-              </div>
-              <div className="form-group">
-                <label htmlFor="gender">Sexo</label>
-                <select id="gender" name="gender" value={formData.gender} onChange={handleChange}>
-                  <option value="Masculino">Masculino</option>
-                  <option value="Feminino">Feminino</option>
-                  <option value="Outro">Outro</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label htmlFor="birth_date">Nascimento</label>
-                <input id="birth_date" type="date" name="birth_date" value={formData.birth_date} onChange={handleChange} required />
-              </div>
-              <div className="form-group">
-                <label htmlFor="profession">Profissão</label>
-                <input id="profession" type="text" name="profession" value={formData.profession} onChange={handleChange} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="phone">Telefone (separe por vírgula)</label>
-                <input id="phone" type="text" name="phone" value={formData.phone} onChange={handleChange} placeholder="Ex: 11999998888, 11777776666" />
-              </div>
-            </div>
-            <div className="form-group" style={{ marginTop: '1rem' }}>
-              <label htmlFor="address">Endereço Completo</label>
-              <input id="address" type="text" name="address" value={formData.address} onChange={handleChange} />
-            </div>
-          </section>
-
-          {!patientToEdit && (
+          <form onSubmit={handleSubmit} className="modal-body-scroll">
             <section className="form-section">
-              <h3>🏥 Avaliação Inicial</h3>
+              <h3>📍 Identificação</h3>
               <div className="form-grid">
                 <div className="form-group">
-                  <label htmlFor="eval_date">Data da Avaliação</label>
-                  <input id="eval_date" type="date" name="evaluation_date" value={formData.evaluation_date} onChange={handleChange} required />
+                  <label htmlFor="healthcare_id">ID Convênio / SUS</label>
+                  <input id="healthcare_id" type="text" name="healthcare_id" value={formData.healthcare_id} onChange={handleChange} />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="eval_doctor">Médico Solicitante</label>
-                  <input id="eval_doctor" type="text" name="doctor" value={formData.doctor} onChange={handleChange} />
+                  <label htmlFor="name">Nome Completo</label>
+                  <input id="name" type="text" name="name" value={formData.name} onChange={handleChange} required />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="eval_diag">Diagnóstico Médico</label>
-                  <input id="eval_diag" type="text" name="medical_diagnosis" value={formData.medical_diagnosis} onChange={handleChange} />
+                  <label htmlFor="mom_name">Nome da Mãe</label>
+                  <input id="mom_name" type="text" name="mom_name" value={formData.mom_name} onChange={handleChange} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="age_display">Idade</label>
+                  <input id="age_display" type="number" value={currentAge} readOnly />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="cpf">CPF</label>
+                  <input id="cpf" type="text" name="cpf" value={formData.cpf} onChange={handleChange} placeholder="000.000.000-00" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="gender">Sexo</label>
+                  <select id="gender" name="gender" value={formData.gender} onChange={handleChange}>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Feminino">Feminino</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="birth_date">Nascimento</label>
+                  <input id="birth_date" type="date" name="birth_date" value={formData.birth_date} onChange={handleChange} required />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="profession">Profissão</label>
+                  <input id="profession" type="text" name="profession" value={formData.profession} onChange={handleChange} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="phone">Telefone (separe por vírgula)</label>
+                  <input id="phone" type="text" name="phone" value={formData.phone} onChange={handleChange} placeholder="Ex: 11999998888, 11777776666" />
                 </div>
               </div>
-              <div className="form-group">
-                <label htmlFor="eval_chief">Queixa Principal</label>
-                <textarea id="eval_chief" name="chief_complaint" value={formData.chief_complaint} onChange={handleChange} rows={2} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="eval_hda">História da Doença Atual (HDA)</label>
-                <textarea id="eval_hda" name="history_present_illness" value={formData.history_present_illness} onChange={handleChange} rows={3} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="eval_hpp">História Patológica Pregressa (HPP)</label>
-                <textarea id="eval_hpp" name="past_medical_history" value={formData.past_medical_history} onChange={handleChange} rows={2} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="eval_meds">Medicamentos em uso</label>
-                <textarea id="eval_meds" name="medications" value={formData.medications} onChange={handleChange} rows={2} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="eval_hab">Atividades e Hábitos</label>
-                <textarea id="eval_hab" name="habits_activities" value={formData.habits_activities} onChange={handleChange} rows={2} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="physical_exam">Exame Físico / Complementares</label>
-                <textarea id="physical_exam" name="physical_exam" value={formData.physical_exam} onChange={handleChange} rows={4} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="treatment_plan">Plano de Tratamento</label>
-                <textarea id="treatment_plan" name="treatment_plan" value={formData.treatment_plan} onChange={handleChange} rows={4} className="treatment-textarea" />
+              <div className="form-group" style={{ marginTop: '1rem' }}>
+                <label htmlFor="address">Endereço Completo</label>
+                <input id="address" type="text" name="address" value={formData.address} onChange={handleChange} />
               </div>
             </section>
-          )}
 
-          <div className="modal-actions footer-actions">
-            <button type="button" className="btn-cancel" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn-primary">{patientToEdit ? 'Atualizar Dados' : 'Salvar Ficha'}</button>
-          </div>
-        </form>
+            {!patientToEdit && (
+              <section className="form-section">
+                <h3>🏥 Avaliação Inicial</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label htmlFor="eval_date">Data da Avaliação</label>
+                    <input id="eval_date" type="date" name="evaluation_date" value={formData.evaluation_date} onChange={handleChange} required />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="eval_doctor">Médico Solicitante</label>
+                    <input id="eval_doctor" type="text" name="doctor" value={formData.doctor} onChange={handleChange} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="eval_diag">Diagnóstico Médico</label>
+                    <input id="eval_diag" type="text" name="medical_diagnosis" value={formData.medical_diagnosis} onChange={handleChange} />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="eval_chief">Queixa Principal</label>
+                  <textarea id="eval_chief" name="chief_complaint" value={formData.chief_complaint} onChange={handleChange} rows={2} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="eval_hda">História da Doença Atual (HDA)</label>
+                  <textarea id="eval_hda" name="history_present_illness" value={formData.history_present_illness} onChange={handleChange} rows={3} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="eval_hpp">História Patológica Pregressa (HPP)</label>
+                  <textarea id="eval_hpp" name="past_medical_history" value={formData.past_medical_history} onChange={handleChange} rows={2} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="eval_meds">Medicamentos em uso</label>
+                  <textarea id="eval_meds" name="medications" value={formData.medications} onChange={handleChange} rows={2} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="eval_hab">Atividades e Hábitos</label>
+                  <textarea id="eval_hab" name="habits_activities" value={formData.habits_activities} onChange={handleChange} rows={2} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="physical_exam">Exame Físico / Complementares</label>
+                  <textarea id="physical_exam" name="physical_exam" value={formData.physical_exam} onChange={handleChange} rows={4} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="treatment_plan">Plano de Tratamento</label>
+                  <textarea id="treatment_plan" name="treatment_plan" value={formData.treatment_plan} onChange={handleChange} rows={4} className="treatment-textarea" />
+                </div>
+              </section>
+            )}
+
+            <div className="modal-actions footer-actions">
+              <button type="button" className="btn-cancel" onClick={onClose}>Cancelar</button>
+              <button type="submit" className="btn-primary">{patientToEdit ? 'Atualizar Dados' : 'Salvar Ficha'}</button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+
+      <EditConfirmationModal 
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        onConfirm={handleConfirmSave}
+        changedFields={changedFields}
+      />
+    </>
   );
 };
 
