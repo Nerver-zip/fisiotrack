@@ -23,6 +23,7 @@ function App() {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isEvalModalOpen, setIsEvalModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [patientToEdit, setPatientToEdit] = useState<Patient | null>(null);
 
   const fetchPatients = async (query: string = '') => {
     try {
@@ -102,17 +103,30 @@ function App() {
 
   const savePatient = async (patient: Patient) => {
     try {
-      const response = await fetch('http://localhost:8080/api/patients', {
-        method: 'POST',
+      const isEdit = !!patient.id;
+      const url = isEdit 
+        ? `http://localhost:8080/api/patients/${patient.id}`
+        : 'http://localhost:8080/api/patients';
+      
+      const response = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patient)
       });
+
       if (response.ok) {
         setIsFormModalOpen(false);
-        fetchPatients();
+        setPatientToEdit(null);
+        fetchPatients(searchTerm);
+        // Se estiver editando de dentro do prontuário, atualiza o paciente selecionado e reabre o prontuário
+        if (isEdit && patient.id && selectedPatient?.id === patient.id) {
+          fetchPatientWithHistory(patient.id);
+        }
+      } else {
+        alert('Erro ao salvar dados do paciente');
       }
     } catch (err) {
-      alert('Erro ao salvar paciente');
+      alert('Erro de conexão com o servidor');
     }
   };
 
@@ -145,7 +159,6 @@ function App() {
       }
     };
     reader.readAsText(file);
-    // Reset input
     e.target.value = '';
   };
 
@@ -181,6 +194,21 @@ function App() {
     }
   };
 
+  const handleEditPatient = (patient: Patient) => {
+    setIsDetailModalOpen(false);
+    setPatientToEdit(patient);
+    setIsFormModalOpen(true);
+  };
+
+  const handleCloseForm = () => {
+    setIsFormModalOpen(false);
+    // Se estava editando e cancelou, volta para o prontuário
+    if (patientToEdit && selectedPatient) {
+      setIsDetailModalOpen(true);
+    }
+    setPatientToEdit(null);
+  };
+
   return (
     <div className="app-container">
       <header className="header">
@@ -206,7 +234,7 @@ function App() {
               <button 
                 type="button" 
                 className="btn-primary btn-new-patient" 
-                onClick={() => setIsFormModalOpen(true)}
+                onClick={() => { setPatientToEdit(null); setIsFormModalOpen(true); }}
               >
                 + Novo Paciente
               </button>
@@ -276,8 +304,9 @@ function App() {
 
       <PatientFormModal 
         isOpen={isFormModalOpen}
-        onClose={() => setIsFormModalOpen(false)}
+        onClose={handleCloseForm}
         onSave={savePatient}
+        patientToEdit={patientToEdit}
       />
 
       <EvaluationFormModal 
@@ -293,6 +322,7 @@ function App() {
         patient={selectedPatient}
         onClose={() => setIsDetailModalOpen(false)}
         onAddEvaluation={() => { setIsDetailModalOpen(false); setIsEvalModalOpen(true); }}
+        onEditPatient={handleEditPatient}
       />
 
       <ConfirmationModal 

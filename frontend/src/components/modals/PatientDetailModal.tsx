@@ -8,9 +8,10 @@ interface PatientDetailModalProps {
   patient: Patient | null;
   onClose: () => void;
   onAddEvaluation: (patientId: number) => void;
+  onEditPatient: (patient: Patient) => void;
 }
 
-const PatientDetailModal: React.FC<PatientDetailModalProps> = ({ isOpen, patient, onClose, onAddEvaluation }) => {
+const PatientDetailModal: React.FC<PatientDetailModalProps> = ({ isOpen, patient, onClose, onAddEvaluation, onEditPatient }) => {
   const [selectedEvalId, setSelectedEvalId] = useState<number | null>(null);
 
   if (!isOpen || !patient) return null;
@@ -29,7 +30,16 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({ isOpen, patient
         
         <div className="modal-body-scroll">
           <section className="detail-section">
-            <h3>📍 Dados Cadastrais</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ borderLeft: '4px solid var(--unimed-green)', paddingLeft: '10px' }}>📍 Dados Cadastrais</h3>
+              <button 
+                className="btn-primary" 
+                style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', backgroundColor: 'var(--unimed-dark-green)' }}
+                onClick={() => onEditPatient(patient)}
+              >
+                ✏️ Editar Dados
+              </button>
+            </div>
             <div className="detail-grid">
               <p><strong>Nome:</strong> {patient.name || ''}</p>
               <p><strong>CPF:</strong> {patient.cpf || ''}</p>

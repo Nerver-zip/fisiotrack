@@ -66,6 +66,40 @@ void ApiServer::setup_routes() {
         }
     });
 
+    // Atualizar paciente existente
+    m_svr.Put(R"(/api/patients/(\d+))", [this](const httplib::Request& req, httplib::Response& res) {
+        try {
+            int id = std::stoi(req.matches[1]);
+            auto existing_opt = m_repo->get_patient(id);
+            if (!existing_opt) {
+                res.status = 404;
+                return;
+            }
+
+            json patch = json::parse(req.body);
+            Patient p = *existing_opt;
+
+            if (patch.contains("healthcare_id")) p.healthcare_id = patch["healthcare_id"];
+            if (patch.contains("name")) p.name = patch["name"];
+            if (patch.contains("mom_name")) p.mom_name = patch["mom_name"];
+            if (patch.contains("birth_date")) p.birth_date = patch["birth_date"];
+            if (patch.contains("cpf")) p.cpf = patch["cpf"];
+            if (patch.contains("gender")) p.gender = patch["gender"];
+            if (patch.contains("address")) p.address = patch["address"];
+            if (patch.contains("profession")) p.profession = patch["profession"];
+            if (patch.contains("phone")) p.phone = patch["phone"].get<std::vector<std::string>>();
+
+            if (m_repo->update_patient(p)) {
+                res.status = 200;
+                res.set_content(json({{"status", "ok"}}).dump(), "application/json");
+            } else {
+                res.status = 500;
+            }
+        } catch (...) {
+            res.status = 400;
+        }
+    });
+
     // Importar pacientes (JSON)
     m_svr.Post("/api/patients/import", [this](const httplib::Request& req, httplib::Response& res) {
         try {

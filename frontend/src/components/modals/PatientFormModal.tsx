@@ -1,70 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Patient, Evaluation } from '../../types';
+import { calculateAge } from '../../utils';
 import './Modal.css';
 
 interface PatientFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (patient: Patient) => void;
+  patientToEdit?: Patient | null;
 }
 
-// Tipo auxiliar para capturar todos os dados do formulário (Paciente + Avaliação Inicial)
-interface PatientFormData {
-  healthcare_id: string;
-  name: string;
-  mom_name: string;
-  birth_date: string;
-  cpf: string;
-  gender: string;
-  address: string;
-  profession: string;
-  phone: string; // Capturamos como string (ex: "11999999999, 11888888888")
-  // Campos da Avaliação
-  evaluation_date: string;
-  doctor: string;
-  medical_diagnosis: string;
-  chief_complaint: string;
-  history_present_illness: string;
-  past_medical_history: string;
-  medications: string;
-  habits_activities: string;
-  physical_exam: string;
-  treatment_plan: string;
-}
-
-const calculateAge = (birthDate: string, evaluationDate: string): number => {
-  if (!birthDate || !evaluationDate) return 0;
-  const birth = new Date(birthDate + 'T00:00:00'); // Add T00:00:00 to avoid timezone issues
-  const evaluation = new Date(evaluationDate + 'T00:00:00');
-  
-  let age = evaluation.getFullYear() - birth.getFullYear();
-  const m = evaluation.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && evaluation.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
-};
-
-const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, onSave }) => {
-  const initialFormData: PatientFormData = {
-    healthcare_id: '', name: '', mom_name: '', cpf: '', 
-    birth_date: '', gender: 'Masculino', address: '', profession: '', phone: '',
+const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, onSave, patientToEdit }) => {
+  const initialFormState = {
+    healthcare_id: '',
+    name: '',
+    mom_name: '',
+    birth_date: '1990-01-01',
+    cpf: '',
+    gender: 'Masculino' as const,
+    address: '',
+    profession: '',
+    phone: '',
+    // Campos da avaliação inicial (apenas para novo paciente)
     evaluation_date: new Date().toISOString().split('T')[0],
     doctor: '',
-    medical_diagnosis: '', 
-    chief_complaint: '', 
+    medical_diagnosis: '',
+    chief_complaint: '',
     history_present_illness: '',
-    past_medical_history: '', 
-    medications: '', 
+    past_medical_history: '',
+    medications: '',
     habits_activities: '',
-    physical_exam: '', 
+    physical_exam: '',
     treatment_plan: ''
   };
 
-  const [formData, setFormData] = useState<PatientFormData>(initialFormData);
-  const currentAge = calculateAge(formData.birth_date, formData.evaluation_date);
+  const [formData, setFormData] = useState(initialFormState);
+
+  useEffect(() => {
+    if (patientToEdit) {
+      setFormData({
+        ...initialFormState,
+        healthcare_id: patientToEdit.healthcare_id || '',
+        name: patientToEdit.name || '',
+        mom_name: patientToEdit.mom_name || '',
+        birth_date: patientToEdit.birth_date || '1990-01-01',
+        cpf: patientToEdit.cpf || '',
+        gender: (patientToEdit.gender as any) || 'Masculino',
+        address: patientToEdit.address || '',
+        profession: patientToEdit.profession || '',
+        phone: Array.isArray(patientToEdit.phone) ? patientToEdit.phone.join(', ') : ''
+      });
+    } else {
+      setFormData(initialFormState);
+    }
+  }, [patientToEdit, isOpen]);
 
   if (!isOpen) return null;
+
+  const currentAge = calculateAge(formData.birth_date, patientToEdit ? new Date().toISOString().split('T')[0] : formData.evaluation_date);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -74,11 +67,13 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Processa os telefones (separa por vírgula e remove espaços)
-    const phoneArray = formData.phone.split(',').map(p => p.trim()).filter(p => p !== '');
+    const phoneArray = formData.phone
+      .split(',')
+      .map(p => p.trim())
+      .filter(p => p !== '');
 
-    // Constrói o objeto Patient seguindo a nova estrutura (Paciente -> Lista de Avaliações)
-    const patient: Patient = {
+    const patientData: Patient = {
+      id: patientToEdit?.id,
       healthcare_id: formData.healthcare_id,
       name: formData.name,
       mom_name: formData.mom_name,
@@ -88,9 +83,9 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
       address: formData.address,
       profession: formData.profession,
       phone: phoneArray,
-      evaluations: [
+      evaluations: patientToEdit ? undefined : [
         {
-          patient_id: 0, // Será preenchido pelo backend
+          patient_id: 0,
           evaluation_date: formData.evaluation_date,
           doctor: formData.doctor,
           medical_diagnosis: formData.medical_diagnosis,
@@ -105,15 +100,14 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
       ]
     };
 
-    onSave(patient);
-    setFormData(initialFormData);
+    onSave(patientData);
   };
 
   return (
     <div className="modal-overlay">
       <div className="modal-content detail-modal">
         <div className="modal-header">
-          <h2 className="modal-title">Nova Ficha de Avaliação</h2>
+          <h2 className="modal-title">{patientToEdit ? 'Editar Dados Cadastrais' : 'Nova Ficha de Paciente'}</h2>
           <button className="btn-close" onClick={onClose}>&times;</button>
         </div>
 
@@ -151,73 +145,74 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
               </div>
               <div className="form-group">
                 <label htmlFor="birth_date">Nascimento</label>
-                <input id="birth_date" type="date" name="birth_date" value={formData.birth_date} onChange={handleChange} />
+                <input id="birth_date" type="date" name="birth_date" value={formData.birth_date} onChange={handleChange} required />
               </div>
               <div className="form-group">
                 <label htmlFor="profession">Profissão</label>
                 <input id="profession" type="text" name="profession" value={formData.profession} onChange={handleChange} />
               </div>
               <div className="form-group">
-                <label htmlFor="phone">Telefone(s)</label>
-                <input id="phone" type="text" name="phone" value={formData.phone} onChange={handleChange} placeholder="Ex: (11) 99999-9999, (11) 88888-8888" />
+                <label htmlFor="phone">Telefone (separe por vírgula)</label>
+                <input id="phone" type="text" name="phone" value={formData.phone} onChange={handleChange} placeholder="Ex: 11999998888, 11777776666" />
               </div>
             </div>
-            <div className="form-group full-width" style={{ marginTop: '1rem' }}>
-              <label htmlFor="address">Endereço</label>
+            <div className="form-group" style={{ marginTop: '1rem' }}>
+              <label htmlFor="address">Endereço Completo</label>
               <input id="address" type="text" name="address" value={formData.address} onChange={handleChange} />
             </div>
           </section>
 
-          <section className="form-section">
-            <h3>🏥 Histórico e Avaliação</h3>
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="doctor">Médico Solicitante</label>
-                <input id="doctor" type="text" name="doctor" value={formData.doctor} onChange={handleChange} />
+          {!patientToEdit && (
+            <section className="form-section">
+              <h3>🏥 Avaliação Inicial</h3>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label htmlFor="eval_date">Data da Avaliação</label>
+                  <input id="eval_date" type="date" name="evaluation_date" value={formData.evaluation_date} onChange={handleChange} required />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="eval_doctor">Médico Solicitante</label>
+                  <input id="eval_doctor" type="text" name="doctor" value={formData.doctor} onChange={handleChange} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="eval_diag">Diagnóstico Médico</label>
+                  <input id="eval_diag" type="text" name="medical_diagnosis" value={formData.medical_diagnosis} onChange={handleChange} />
+                </div>
               </div>
               <div className="form-group">
-                <label htmlFor="evaluation_date">Data da Avaliação</label>
-                <input id="evaluation_date" type="date" name="evaluation_date" value={formData.evaluation_date} onChange={handleChange} />
+                <label htmlFor="eval_chief">Queixa Principal</label>
+                <textarea id="eval_chief" name="chief_complaint" value={formData.chief_complaint} onChange={handleChange} rows={2} />
               </div>
               <div className="form-group">
-                <label htmlFor="medical_diagnosis">Diagnóstico Médico</label>
-                <input id="medical_diagnosis" type="text" name="medical_diagnosis" value={formData.medical_diagnosis} onChange={handleChange} />
+                <label htmlFor="eval_hda">História da Doença Atual (HDA)</label>
+                <textarea id="eval_hda" name="history_present_illness" value={formData.history_present_illness} onChange={handleChange} rows={3} />
               </div>
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="chief_complaint">Queixa Principal</label>
-              <textarea id="chief_complaint" name="chief_complaint" value={formData.chief_complaint} onChange={handleChange} rows={2} />
-            </div>
-            <div className="form-group">
-              <label htmlFor="history_present_illness">História da Doença Atual (HDA)</label>
-              <textarea id="history_present_illness" name="history_present_illness" value={formData.history_present_illness} onChange={handleChange} rows={3} />
-            </div>
-            <div className="form-group">
-              <label htmlFor="past_medical_history">História Patológica Pregressa (HPP)</label>
-              <textarea id="past_medical_history" name="past_medical_history" value={formData.past_medical_history} onChange={handleChange} rows={2} />
-            </div>
-            <div className="form-group">
-              <label htmlFor="medications">Medicamentos em uso</label>
-              <textarea id="medications" name="medications" value={formData.medications} onChange={handleChange} rows={2} />
-            </div>
-            <div className="form-group">
-              <label htmlFor="habits_activities">Atividades e Hábitos</label>
-              <textarea id="habits_activities" name="habits_activities" value={formData.habits_activities} onChange={handleChange} rows={2} />
-            </div>
-            <div className="form-group">
-              <label htmlFor="physical_exam">Exame Físico / Complementares</label>
-              <textarea id="physical_exam" name="physical_exam" value={formData.physical_exam} onChange={handleChange} rows={4} />
-            </div>
-            <div className="form-group">
-              <label htmlFor="treatment_plan">Plano de Tratamento</label>
-              <textarea id="treatment_plan" name="treatment_plan" value={formData.treatment_plan} onChange={handleChange} rows={4} className="treatment-textarea" />
-            </div>
-          </section>
+              <div className="form-group">
+                <label htmlFor="eval_hpp">História Patológica Pregressa (HPP)</label>
+                <textarea id="eval_hpp" name="past_medical_history" value={formData.past_medical_history} onChange={handleChange} rows={2} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="eval_meds">Medicamentos em uso</label>
+                <textarea id="eval_meds" name="medications" value={formData.medications} onChange={handleChange} rows={2} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="eval_hab">Atividades e Hábitos</label>
+                <textarea id="eval_hab" name="habits_activities" value={formData.habits_activities} onChange={handleChange} rows={2} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="physical_exam">Exame Físico / Complementares</label>
+                <textarea id="physical_exam" name="physical_exam" value={formData.physical_exam} onChange={handleChange} rows={4} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="treatment_plan">Plano de Tratamento</label>
+                <textarea id="treatment_plan" name="treatment_plan" value={formData.treatment_plan} onChange={handleChange} rows={4} className="treatment-textarea" />
+              </div>
+            </section>
+          )}
 
           <div className="modal-actions footer-actions">
             <button type="button" className="btn-cancel" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn-primary">Salvar Ficha</button>
+            <button type="submit" className="btn-primary">{patientToEdit ? 'Atualizar Dados' : 'Salvar Ficha'}</button>
           </div>
         </form>
       </div>
