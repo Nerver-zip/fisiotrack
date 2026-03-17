@@ -147,3 +147,15 @@ body {
 .btn-import:hover {
   background-color: var(--unimed-dark-green);
 }
+
+/* Ordenação */
+.sort-icon {
+  margin-left: 5px;
+  color: #ccc;
+  font-family: monospace;
+}
+
+.sort-icon.active {
+  color: var(--unimed-green);
+  font-weight: bold;
+}

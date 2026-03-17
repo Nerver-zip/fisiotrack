@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import './App.css';
 import { Patient, Evaluation } from './types';
 import { formatDate } from './utils';
@@ -12,6 +12,10 @@ function App() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Estados para Ordenação
+  const [sortField, setSortField] = useState<'name' | 'last_eval'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Estados para os Modais
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -60,6 +64,40 @@ function App() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     fetchPatients(searchTerm);
+  };
+
+  // Lógica de Ordenação
+  const sortedPatients = useMemo(() => {
+    return [...patients].sort((a, b) => {
+      let valA: string = '';
+      let valB: string = '';
+
+      if (sortField === 'name') {
+        valA = (a.name || '').toLowerCase();
+        valB = (b.name || '').toLowerCase();
+      } else if (sortField === 'last_eval') {
+        valA = a.evaluations?.[0]?.evaluation_date || '0000-00-00';
+        valB = b.evaluations?.[0]?.evaluation_date || '0000-00-00';
+      }
+
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [patients, sortField, sortDirection]);
+
+  const toggleSort = (field: 'name' | 'last_eval') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const renderSortIcon = (field: 'name' | 'last_eval') => {
+    if (sortField !== field) return <span className="sort-icon">↕</span>;
+    return sortDirection === 'asc' ? <span className="sort-icon active">↑</span> : <span className="sort-icon active">↓</span>;
   };
 
   const savePatient = async (patient: Patient) => {
@@ -192,14 +230,24 @@ function App() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--unimed-border)' }}>
-                  <th style={{ padding: '1rem' }}>Nome</th>
-                  <th style={{ padding: '1rem' }}>Última Entrada</th>
+                  <th 
+                    style={{ padding: '1rem', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => toggleSort('name')}
+                  >
+                    Nome {renderSortIcon('name')}
+                  </th>
+                  <th 
+                    style={{ padding: '1rem', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => toggleSort('last_eval')}
+                  >
+                    Última Entrada {renderSortIcon('last_eval')}
+                  </th>
                   <th style={{ padding: '1rem' }}>Diagnóstico</th>
                   <th style={{ padding: '1rem' }}>Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {patients.map(p => (
+                {sortedPatients.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--unimed-border)' }}>
                     <td style={{ padding: '1rem' }}>{p.name}</td>
                     <td style={{ padding: '1rem' }}>{p.evaluations?.[0] ? formatDate(p.evaluations[0].evaluation_date) : 'Sem avaliação'}</td>
