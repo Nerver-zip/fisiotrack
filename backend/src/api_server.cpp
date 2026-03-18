@@ -45,6 +45,42 @@ bool ApiServer::is_authorized(const httplib::Request& req) {
 void ApiServer::setup_routes() {
     // --- Autenticação (Zero-Knowledge) ---
 
+    // Checa se o banco de dados já foi criado (com senha mestre)
+    m_svr.Get("/api/auth/status", [this](const httplib::Request& req, httplib::Response& res) {
+        bool init = m_repo->is_initialized();
+        res.set_content(json({{"initialized", init}}).dump(), "application/json");
+    });
+
+    // Criação inicial do banco de dados (Primeiro Acesso)
+    m_svr.Post("/api/auth/setup", [this](const httplib::Request& req, httplib::Response& res) {
+        if (m_repo->is_initialized()) {
+            res.status = 400;
+            res.set_content(json({{"error", "Banco já inicializado. Faça login."}}).dump(), "application/json");
+            return;
+        }
+
+        try {
+            auto body = json::parse(req.body);
+            std::string password = body.value("password", "");
+            if (password.empty()) {
+                res.status = 400;
+                res.set_content(json({{"error", "Senha não pode ser vazia"}}).dump(), "application/json");
+                return;
+            }
+
+            if (m_repo->authenticate(password)) {
+                std::string token = m_session_manager.create_session();
+                res.status = 201;
+                res.set_content(json({{"token", token}}).dump(), "application/json");
+            } else {
+                res.status = 500;
+                res.set_content(json({{"error", "Falha ao criar banco de dados"}}).dump(), "application/json");
+            }
+        } catch (...) {
+            res.status = 400;
+        }
+    });
+
     m_svr.Post("/api/login", [this](const httplib::Request& req, httplib::Response& res) {
         try {
             auto body = json::parse(req.body);

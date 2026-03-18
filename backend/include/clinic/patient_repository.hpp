@@ -9,6 +9,8 @@
 #include <map>
 #include <algorithm>
 
+#include <filesystem>
+
 namespace clinic {
 
 /**
@@ -22,6 +24,11 @@ public:
     bool initialize(const std::string& db_path) {
         m_db_path = db_path;
         return true;
+    }
+
+    bool is_initialized() const {
+        if (m_db_path.empty()) return false;
+        return std::filesystem::exists(m_db_path);
     }
 
     bool authenticate(const std::string& password) {

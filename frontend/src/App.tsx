@@ -15,7 +15,9 @@ function App() {
 
   // Autenticação e Timeout
   const [token, setToken] = useState<string | null>(localStorage.getItem('fisio_token'));
+  const [isInitialized, setIsInitialized] = useState<boolean | null>(null);
   const [loginPassword, setLoginPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   
   const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos
@@ -36,6 +38,20 @@ function App() {
   const [patientToEdit, setPatientToEdit] = useState<Patient | null>(null);
   const [evaluationToEdit, setEvaluationToEdit] = useState<Evaluation | null>(null);
   const [evaluationToDelete, setEvaluationToDelete] = useState<Evaluation | null>(null);
+
+  const checkStatus = async () => {
+    try {
+      const res = await fetch('http://localhost:8080/api/auth/status');
+      const data = await res.json();
+      setIsInitialized(data.initialized);
+    } catch (err) {
+      setLoginError('Não foi possível conectar ao servidor backend.');
+    }
+  };
+
+  useEffect(() => {
+    checkStatus();
+  }, []);
 
   const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     const headers = {
@@ -66,6 +82,38 @@ function App() {
         setLoginError(null);
       } else {
         setLoginError('Senha incorreta.');
+      }
+    } catch (err) {
+      setLoginError('Erro ao conectar com o servidor.');
+    }
+  };
+
+  const handleSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginPassword !== confirmPassword) {
+      setLoginError('As senhas não coincidem.');
+      return;
+    }
+    if (loginPassword.length < 6) {
+      setLoginError('A senha deve ter pelo menos 6 caracteres para segurança.');
+      return;
+    }
+
+    try {
+      const res = await fetch('http://localhost:8080/api/auth/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: loginPassword })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setToken(data.token);
+        localStorage.setItem('fisio_token', data.token);
+        setIsInitialized(true);
+        setLoginError(null);
+      } else {
+        const data = await res.json();
+        setLoginError(data.error || 'Erro ao configurar o sistema.');
       }
     } catch (err) {
       setLoginError('Erro ao conectar com o servidor.');
@@ -330,28 +378,73 @@ function App() {
   };
 
   if (!token) {
+    const isSetupMode = isInitialized === false;
+
     return (
       <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--unimed-bg)' }}>
         <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
-          <h1 style={{ marginBottom: '2rem' }}>Fisio<span className="logo-unimed">Track</span></h1>
-          <form onSubmit={handleLogin}>
-            <div className="form-group" style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
-              <label>Senha de Acesso</label>
-              <input 
-                type="password" 
-                value={loginPassword} 
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="Digite sua senha master"
-                style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--unimed-border)', borderRadius: '4px' }}
-                autoFocus
-              />
-            </div>
-            {loginError && <p style={{ color: '#d9534f', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</p>}
-            <button type="submit" className="btn-primary" style={{ width: '100%' }}>Entrar</button>
-          </form>
-          <p style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#666' }}>
-            Proteção Zero-Knowledge via SQLCipher (AES-256)
-          </p>
+          <h1 style={{ marginBottom: '1rem' }}>Fisio<span className="logo-unimed">Track</span></h1>
+          
+          {isSetupMode ? (
+            <>
+              <h2 style={{ color: 'var(--unimed-green)', marginBottom: '0.5rem' }}>Configuração Inicial</h2>
+              <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1.5rem' }}>
+                Crie sua senha mestre para criptografar o banco de dados.
+              </p>
+              <form onSubmit={handleSetup}>
+                <div className="form-group" style={{ textAlign: 'left', marginBottom: '1rem' }}>
+                  <label htmlFor="setup-password">Definir Senha Mestre</label>
+                  <input 
+                    id="setup-password"
+                    type="password" 
+                    value={loginPassword} 
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--unimed-border)', borderRadius: '4px' }}
+                    autoFocus
+                  />
+                </div>
+                <div className="form-group" style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
+                  <label htmlFor="confirm-password">Confirmar Senha</label>
+                  <input 
+                    id="confirm-password"
+                    type="password" 
+                    value={confirmPassword} 
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repita a senha"
+                    style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--unimed-border)', borderRadius: '4px' }}
+                  />
+                </div>
+                {loginError && <p style={{ color: '#d9534f', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</p>}
+                <button type="submit" className="btn-primary" style={{ width: '100%' }}>Criar Banco Criptografado</button>
+                <p style={{ marginTop: '1.5rem', fontSize: '0.75rem', color: '#d9534f', fontWeight: 'bold' }}>
+                  ⚠️ ATENÇÃO: Se você esquecer esta senha, os dados NÃO poderão ser recuperados.
+                </p>
+              </form>
+            </>
+          ) : (
+            <>
+              <form onSubmit={handleLogin}>
+                <div className="form-group" style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
+                  <label htmlFor="login-password">Senha de Acesso</label>
+                  <input 
+                    id="login-password"
+                    type="password" 
+                    value={loginPassword} 
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="Digite sua senha master"
+                    style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--unimed-border)', borderRadius: '4px' }}
+                    autoFocus
+                  />
+                </div>
+                {loginError && <p style={{ color: '#d9534f', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</p>}
+                <button type="submit" className="btn-primary" style={{ width: '100%' }}>Entrar</button>
+              </form>
+              <p style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#666' }}>
+                Proteção Zero-Knowledge via SQLCipher (AES-256)
+              </p>
+            </>
+          )}
         </div>
       </div>
     );

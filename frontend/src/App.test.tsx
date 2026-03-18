@@ -11,14 +11,84 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
     localStorage.clear();
   });
 
-  test('deve renderizar a tela de login inicialmente se não houver token', () => {
+  const mockStatusCall = (initialized: boolean) => {
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ initialized }),
+    });
+  };
+
+  test('deve renderizar a tela de setup se o banco não estiver inicializado', async () => {
+    mockStatusCall(false);
+
     render(<App />);
-    expect(screen.getByText(/Senha de Acesso/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Digite sua senha master/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Entrar/i })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Configuração Inicial/i)).toBeInTheDocument();
+    });
+  });
+
+  test('deve exibir erro se as senhas não coincidirem no setup', async () => {
+    mockStatusCall(false);
+
+    render(<App />);
+    
+    const passInput = await screen.findByLabelText(/Definir Senha Mestre/i);
+    const confirmInput = screen.getByLabelText(/Confirmar Senha/i);
+    const setupButton = screen.getByRole('button', { name: /Criar Banco Criptografado/i });
+
+    fireEvent.change(passInput, { target: { value: 'password123' } });
+    fireEvent.change(confirmInput, { target: { value: 'different' } });
+    fireEvent.click(setupButton);
+
+    expect(screen.getByText(/As senhas não coincidem/i)).toBeInTheDocument();
+  });
+
+  test('deve realizar setup com sucesso', async () => {
+    mockStatusCall(false);
+    
+    // Mock do POST setup
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: async () => ({ token: 'new_token' }),
+    });
+
+    // Mock do fetchPatients inicial
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ([]),
+    });
+
+    render(<App />);
+    
+    const passInput = await screen.findByLabelText(/Definir Senha Mestre/i);
+    const confirmInput = screen.getByLabelText(/Confirmar Senha/i);
+    const setupButton = screen.getByRole('button', { name: /Criar Banco Criptografado/i });
+
+    fireEvent.change(passInput, { target: { value: 'securepassword' } });
+    fireEvent.change(confirmInput, { target: { value: 'securepassword' } });
+    fireEvent.click(setupButton);
+
+    await waitFor(() => {
+      expect(localStorage.getItem('fisio_token')).toBe('new_token');
+      expect(screen.getByText(/Dr. Fisioterapeuta/i)).toBeInTheDocument();
+    });
+  });
+
+  test('deve renderizar a tela de login inicialmente se o banco já estiver inicializado', async () => {
+    mockStatusCall(true);
+
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(/Senha de Acesso/i)).toBeInTheDocument();
+    });
   });
 
   test('deve exibir erro ao tentar login com senha incorreta', async () => {
+    mockStatusCall(true);
+
     (fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -27,7 +97,7 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
 
     render(<App />);
     
-    const passwordInput = screen.getByPlaceholderText(/Digite sua senha master/i);
+    const passwordInput = await screen.findByLabelText(/Senha de Acesso/i);
     const loginButton = screen.getByRole('button', { name: /Entrar/i });
 
     fireEvent.change(passwordInput, { target: { value: 'wrong_password' } });
@@ -39,6 +109,8 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
   });
 
   test('deve realizar login com sucesso e salvar o token', async () => {
+    mockStatusCall(true);
+
     const mockToken = 'mock_auth_token_123';
     (fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
@@ -46,7 +118,6 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
       json: async () => ({ token: mockToken }),
     });
     
-    // Mock subsequente para o fetchPatients que ocorre após o login
     (fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -55,7 +126,7 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
 
     render(<App />);
     
-    const passwordInput = screen.getByPlaceholderText(/Digite sua senha master/i);
+    const passwordInput = await screen.findByLabelText(/Senha de Acesso/i);
     const loginButton = screen.getByRole('button', { name: /Entrar/i });
 
     fireEvent.change(passwordInput, { target: { value: 'correct_password' } });
@@ -70,7 +141,12 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
   test('deve realizar logout corretamente e limpar o localStorage', async () => {
     localStorage.setItem('fisio_token', 'active_token');
     
-    // Mock para fetchPatients ao carregar com token
+    // Em modo autenticado (token no localStorage), App chama status e fetchPatients
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ initialized: true }),
+    });
+
     (fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -86,11 +162,7 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
 
     render(<App />);
     
-    await waitFor(() => {
-      expect(screen.getByText(/Sair/i)).toBeInTheDocument();
-    });
-
-    const logoutButton = screen.getByText(/Sair/i);
+    const logoutButton = await screen.findByText(/Sair/i);
     fireEvent.click(logoutButton);
 
     await waitFor(() => {
