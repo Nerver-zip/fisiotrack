@@ -153,3 +153,41 @@ body {
   color: var(--unimed-green);
   font-weight: bold;
 }
+
+/* Paginação */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--unimed-border);
+}
+
+.btn-page {
+  background-color: transparent;
+  color: var(--unimed-green);
+  border: 1px solid var(--unimed-green);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-page:hover:not(:disabled) {
+  background-color: var(--unimed-green);
+  color: white;
+}
+
+.btn-page:disabled {
+  color: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 0.9rem;
+  color: #666;
+}

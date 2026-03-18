@@ -20,6 +20,10 @@ function App() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
   const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -192,6 +196,7 @@ function App() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setCurrentPage(1);
     fetchPatients(searchTerm);
   };
 
@@ -214,7 +219,15 @@ function App() {
     });
   }, [patients, sortField, sortDirection]);
 
+  // Lógica de Paginação
+  const totalPages = Math.ceil(sortedPatients.length / itemsPerPage);
+  const paginatedPatients = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return sortedPatients.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedPatients, currentPage]);
+
   const toggleSort = (field: 'name' | 'last_eval') => {
+    setCurrentPage(1);
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -517,7 +530,7 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {sortedPatients.map(p => (
+                {paginatedPatients.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--unimed-border)' }}>
                     <td style={{ padding: '1rem' }}>{p.name}</td>
                     <td style={{ padding: '1rem' }}>{p.evaluations?.[0] ? formatDate(p.evaluations[0].evaluation_date) : 'Sem avaliação'}</td>
@@ -540,6 +553,31 @@ function App() {
                 ))}
               </tbody>
             </table>
+          )}
+
+          {/* Controles de Paginação */}
+          {!loading && totalPages > 1 && (
+            <div className="pagination">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="btn-page"
+              >
+                &laquo; Anterior
+              </button>
+              
+              <div className="page-info">
+                Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+              </div>
+
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="btn-page"
+              >
+                Próxima &raquo;
+              </button>
+            </div>
           )}
         </div>
       </main>
