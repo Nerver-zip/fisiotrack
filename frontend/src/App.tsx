@@ -534,7 +534,13 @@ function App() {
                   <tr key={p.id} style={{ borderBottom: '1px solid var(--unimed-border)' }}>
                     <td style={{ padding: '1rem' }}>{p.name}</td>
                     <td style={{ padding: '1rem' }}>{p.evaluations?.[0] ? formatDate(p.evaluations[0].evaluation_date) : 'Sem avaliação'}</td>
-                    <td style={{ padding: '1rem' }}>{p.evaluations?.[0]?.medical_diagnosis || 'Não informado'}</td>
+                    <td style={{ padding: '1rem' }}>
+                      {p.evaluations?.[0]?.medical_diagnosis 
+                        ? (p.evaluations[0].medical_diagnosis.length > 30 
+                            ? p.evaluations[0].medical_diagnosis.substring(0, 30) + '...' 
+                            : p.evaluations[0].medical_diagnosis)
+                        : 'Não informado'}
+                    </td>
                     <td style={{ padding: '1rem', display: 'flex', gap: '10px' }}>
                       <button 
                         onClick={() => p.id && fetchPatientWithHistory(p.id)}

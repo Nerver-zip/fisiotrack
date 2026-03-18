@@ -170,4 +170,105 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
       expect(screen.getByText(/Senha de Acesso/i)).toBeInTheDocument();
     });
   });
+
+  test('deve paginar corretamente exibindo 10 pacientes por vez', async () => {
+    mockStatusCall(true);
+
+    // Gera 15 pacientes mockados
+    const manyPatients = Array.from({ length: 15 }, (_, i) => ({
+      id: i + 1,
+      name: `Paciente ${String(i + 1).padStart(2, '0')}`,
+      evaluations: []
+    }));
+
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ token: 'tk' }),
+    });
+
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => manyPatients,
+    });
+
+    render(<App />);
+    
+    // Login
+    const passwordInput = await screen.findByLabelText(/Senha de Acesso/i);
+    fireEvent.change(passwordInput, { target: { value: 'pass' } });
+    fireEvent.click(screen.getByRole('button', { name: /Entrar/i }));
+
+    // Verifica se os primeiros 10 estão na tela
+    await waitFor(() => {
+      expect(screen.getByText(/Paciente 01/i)).toBeInTheDocument();
+      expect(screen.getByText(/Paciente 10/i)).toBeInTheDocument();
+    });
+    
+    // Verifica se o 11 NÃO está na tela (primeira página)
+    expect(screen.queryByText(/Paciente 11/i)).not.toBeInTheDocument();
+
+    // Clica em "Próxima"
+    const nextButton = screen.getByText(/Próxima/i);
+    fireEvent.click(nextButton);
+
+    // Agora o 11 deve aparecer e o 01 sumir
+    await waitFor(() => {
+      expect(screen.getByText(/Paciente 11/i)).toBeInTheDocument();
+      expect(screen.getByText(/Paciente 15/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Paciente 01/i)).not.toBeInTheDocument();
+    });
+
+    // Verifica se o botão "Próxima" está desabilitado na última página
+    expect(nextButton).toBeDisabled();
+
+    // Volta para a primeira página
+    const prevButton = screen.getByText(/Anterior/i);
+    fireEvent.click(prevButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Paciente 01/i)).toBeInTheDocument();
+      expect(prevButton).toBeDisabled();
+    });
+  });
+
+  test('deve truncar diagnóstico médico em 30 caracteres na tabela', async () => {
+    mockStatusCall(true);
+
+    const longDiagnosis = "Este é um diagnóstico médico extremamente longo para testar o truncamento da interface.";
+    const patientWithLongDiag = [{
+      id: 1,
+      name: "Paciente Teste",
+      evaluations: [{
+        evaluation_date: "2024-03-18",
+        medical_diagnosis: longDiagnosis
+      }]
+    }];
+
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ token: 'tk' }),
+    });
+
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => patientWithLongDiag,
+    });
+
+    render(<App />);
+    
+    // Login
+    const passwordInput = await screen.findByLabelText(/Senha de Acesso/i);
+    fireEvent.change(passwordInput, { target: { value: 'pass' } });
+    fireEvent.click(screen.getByRole('button', { name: /Entrar/i }));
+
+    // Verifica o texto truncado (30 chars + ...)
+    const expectedTruncated = longDiagnosis.substring(0, 30) + '...';
+    await waitFor(() => {
+      expect(screen.getByText(expectedTruncated)).toBeInTheDocument();
+    });
+  });
 });
