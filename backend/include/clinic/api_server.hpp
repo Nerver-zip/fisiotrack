@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include "patient_repository.hpp"
+#include "session_manager.hpp"
 
 namespace clinic {
 
@@ -25,7 +26,7 @@ private:
 
     httplib::Server m_svr;
     std::shared_ptr<PatientRepository> m_repo;
-    std::string m_session_token;
+    SessionManager m_session_manager;
 };
 
 } // namespace clinic

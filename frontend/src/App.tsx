@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import './App.css';
 import { Patient, Evaluation } from './types';
 import { formatDate } from './utils';
@@ -13,10 +13,13 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Autenticação
+  // Autenticação e Timeout
   const [token, setToken] = useState<string | null>(localStorage.getItem('fisio_token'));
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
+  
+  const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Estados para Ordenação
   const [sortField, setSortField] = useState<'name' | 'last_eval'>('name');
@@ -74,7 +77,33 @@ function App() {
     setToken(null);
     localStorage.removeItem('fisio_token');
     setPatients([]);
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
   };
+
+  const resetIdleTimer = () => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    if (token) {
+      idleTimerRef.current = setTimeout(() => {
+        handleLogout();
+        alert('Sessão expirada por inatividade. Por favor, faça login novamente.');
+      }, IDLE_TIMEOUT_MS);
+    }
+  };
+
+  useEffect(() => {
+    if (!token) return;
+
+    resetIdleTimer();
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll'];
+    const handleActivity = () => resetIdleTimer();
+
+    events.forEach(e => window.addEventListener(e, handleActivity));
+    return () => {
+      events.forEach(e => window.removeEventListener(e, handleActivity));
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [token]);
 
   const fetchPatients = async (query: string = '') => {
     if (!token) return;

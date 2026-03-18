@@ -41,6 +41,7 @@ find_package(OpenSSL REQUIRED)
 set(SOURCES 
     src/sqlite_database.cpp
     src/api_server.cpp
+    src/session_manager.cpp
 )
 # Criar a biblioteca
 add_library(clinic_lib STATIC ${SOURCES})
@@ -70,6 +71,7 @@ add_executable(unit_tests
     tests/test_database_disk_integrity.cpp
     tests/test_api_server.cpp
     tests/test_import_logic.cpp
+    tests/test_session_manager.cpp
 )
 
 target_link_libraries(unit_tests PRIVATE clinic_lib gtest_main)

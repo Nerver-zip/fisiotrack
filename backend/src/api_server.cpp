@@ -1,25 +1,12 @@
 #include "../include/clinic/api_server.hpp"
 #include <nlohmann/json.hpp>
 #include <iostream>
-#include <random>
-#include <sstream>
 
 namespace clinic {
 
 using json = nlohmann::json;
 
-// Utilitário simples para gerar um "token" (UUID-like)
-std::string generate_token() {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<> dis(0, 15);
-    static const char* digits = "0123456789abcdef";
-    std::string res = "auth_";
-    for (int i = 0; i < 32; ++i) res += digits[dis(gen)];
-    return res;
-}
-
-ApiServer::ApiServer(std::shared_ptr<PatientRepository> repo) : m_repo(std::move(repo)), m_session_token("") {
+ApiServer::ApiServer(std::shared_ptr<PatientRepository> repo) : m_repo(std::move(repo)) {
     setup_cors();
     setup_routes();
 }
@@ -46,11 +33,13 @@ void ApiServer::setup_cors() {
 }
 
 bool ApiServer::is_authorized(const httplib::Request& req) {
-    if (m_session_token.empty()) return false;
     if (!m_repo->is_authenticated()) return false; // Banco fechado? Não autorizado.
     
     auto auth_header = req.get_header_value("Authorization");
-    return auth_header == ("Bearer " + m_session_token);
+    if (auth_header.find("Bearer ") != 0) return false;
+    
+    std::string token = auth_header.substr(7);
+    return m_session_manager.validate_session(token);
 }
 
 void ApiServer::setup_routes() {
@@ -62,9 +51,9 @@ void ApiServer::setup_routes() {
             std::string password = body.value("password", "");
             
             if (m_repo->authenticate(password)) {
-                m_session_token = generate_token();
+                std::string token = m_session_manager.create_session();
                 res.status = 200;
-                res.set_content(json({{"token", m_session_token}}).dump(), "application/json");
+                res.set_content(json({{"token", token}}).dump(), "application/json");
             } else {
                 res.status = 401; // Unauthorized
                 res.set_content(json({{"error", "Senha incorreta ou banco inacessível"}}).dump(), "application/json");
@@ -75,8 +64,17 @@ void ApiServer::setup_routes() {
     });
 
     m_svr.Post("/api/logout", [this](const httplib::Request& req, httplib::Response& res) {
-        m_repo->logout();
-        m_session_token = "";
+        auto auth_header = req.get_header_value("Authorization");
+        if (auth_header.find("Bearer ") == 0) {
+            std::string token = auth_header.substr(7);
+            m_session_manager.invalidate_session(token);
+        }
+
+        // Se nenhuma sessão restou, fecha o banco para proteger a memória
+        if (m_session_manager.active_sessions_count() == 0 && m_repo->is_authenticated()) {
+            m_repo->logout();
+        }
+
         res.status = 200;
         res.set_content(json({{"status", "logged out"}}).dump(), "application/json");
     });
@@ -85,6 +83,11 @@ void ApiServer::setup_routes() {
     
     auto wrap_auth = [this](auto handler) {
         return [this, handler](const httplib::Request& req, httplib::Response& res) {
+            // Check geral: limpa sessões expiradas. Se zerar, tranca o banco.
+            if (m_session_manager.active_sessions_count() == 0 && m_repo->is_authenticated()) {
+                m_repo->logout();
+            }
+
             if (!is_authorized(req)) {
                 res.status = 401;
                 res.set_content(json({{"error", "Não autorizado. Faça login."}}).dump(), "application/json");
