@@ -63,6 +63,16 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
 }
+.logo-app {
+  height: 100px;
+  object-fit: contain;
+  margin-bottom: 1.5rem;
+}
+
+.header .logo-app {
+  height: 60px;
+  margin-bottom: 0;
+}
 
 .logo-unimed {
   color: var(--unimed-green);
@@ -125,26 +135,10 @@ body {
   justify-content: center;
   line-height: normal;
   text-align: center;
+  min-width: 120px; /* Largura mínima padronizada */
 }
 
 .btn-primary:hover {
-  background-color: var(--unimed-dark-green);
-}
-
-.btn-new-patient {
-  background-color: var(--unimed-dark-green);
-}
-
-.btn-new-patient:hover {
-  background-color: #004d26;
-}
-
-.btn-import {
-  background-color: var(--unimed-green);
-  color: white;
-}
-
-.btn-import:hover {
   background-color: var(--unimed-dark-green);
 }
 

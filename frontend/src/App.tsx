@@ -383,7 +383,7 @@ function App() {
     return (
       <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--unimed-bg)' }}>
         <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
-          <h1 style={{ marginBottom: '1rem' }}>Fisio<span className="logo-unimed">Track</span></h1>
+          <img src="/assets/logo.jpg" alt="FisioTrack" className="logo-app" />
           
           {isSetupMode ? (
             <>
@@ -453,7 +453,7 @@ function App() {
   return (
     <div className="app-container">
       <header className="header">
-        <h1>Fisio<span className="logo-unimed">Track</span></h1>
+        <img src="/assets/logo.jpg" alt="FisioTrack" className="logo-app" />
         <div className="user-info" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span>Dr. Fisioterapeuta</span>
           <button onClick={handleLogout} className="btn-cancel" style={{ minWidth: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>Sair</button>
