@@ -6,6 +6,8 @@
 #include <vector>
 #include <optional>
 #include <string>
+#include <map>
+#include <algorithm>
 
 namespace clinic {
 
@@ -17,8 +19,22 @@ class PatientRepository {
 public:
     explicit PatientRepository(std::unique_ptr<IDatabase> db) : m_db(std::move(db)) {}
 
-    bool initialize(const std::string& db_path, const std::string& key) {
-        return m_db->open(db_path, key);
+    bool initialize(const std::string& db_path) {
+        m_db_path = db_path;
+        return true;
+    }
+
+    bool authenticate(const std::string& password) {
+        if (m_db_path.empty()) return false;
+        return m_db->open(m_db_path, password);
+    }
+
+    bool is_authenticated() const {
+        return m_db->is_open();
+    }
+
+    void logout() {
+        m_db->close();
     }
 
     bool add_patient(const Patient& p) { return m_db->add_patient(p); }
@@ -37,13 +53,11 @@ public:
                 merged_patients[p.name] = p;
             } else {
                 auto& existing = merged_patients[p.name];
-                // Unificar telefones
                 for (const auto& phone : p.phone) {
                     if (std::find(existing.phone.begin(), existing.phone.end(), phone) == existing.phone.end()) {
                         existing.phone.push_back(phone);
                     }
                 }
-                // Adicionar avaliações
                 existing.evaluations.insert(existing.evaluations.end(), p.evaluations.begin(), p.evaluations.end());
             }
         }
@@ -86,6 +100,7 @@ public:
 
 private:
     std::unique_ptr<IDatabase> m_db;
+    std::string m_db_path;
 };
 
 } // namespace clinic

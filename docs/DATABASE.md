@@ -14,7 +14,7 @@ Armazena as informações básicas e imutáveis (ou raramente alteradas) do paci
 | `name` | TEXT | Nome completo do paciente (Obrigatório) |
 | `mom_name` | TEXT | Nome da mãe |
 | `birth_date` | TEXT | Data de nascimento (YYYY-MM-DD) |
-| `cpf` | TEXT | CPF formatado ou apenas números |
+| `cpf` | TEXT | CPF formatado or apenas números |
 | `gender` | TEXT | Sexo (Masculino, Feminino, Outro) |
 | `address` | TEXT | Endereço completo |
 | `profession` | TEXT | Profissão atual |
@@ -36,7 +36,6 @@ Armazena as entradas clínicas (fichas de avaliação) ao longo do tempo. Relaci
 | `id` | INTEGER | Chave primária |
 | `patient_id` | INTEGER | FK para `patients(id)` (CASCADE DELETE) |
 | `evaluation_date` | TEXT | Data da avaliação (YYYY-MM-DD) |
-| `age` | INTEGER | Idade do paciente na data da avaliação |
 | `doctor` | TEXT | Médico solicitante |
 | `medical_diagnosis` | TEXT | Diagnóstico médico |
 | `chief_complaint` | TEXT | Queixa principal |
@@ -49,5 +48,6 @@ Armazena as entradas clínicas (fichas de avaliação) ao longo do tempo. Relaci
 
 ## 🔒 Segurança
 - **Criptografia:** SQLCipher com AES-256.
+- **Arquitetura Zero-Knowledge:** A senha master do usuário é a própria chave do banco. O sistema não armazena hashes de senha no disco. A validação do login ocorre tentando ler a tabela `sqlite_master` após aplicar a chave; se falhar, o acesso é negado.
 - **Integridade:** `PRAGMA foreign_keys = ON` ativado em todas as sessões.
 - **Transações:** Operações de escrita complexas (como `add_patient`) utilizam `BEGIN TRANSACTION` para garantir atomicidade.

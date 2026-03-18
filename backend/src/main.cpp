@@ -45,11 +45,9 @@ int main() {
 
     auto repo = std::make_shared<PatientRepository>(std::move(db));
 
-    if (!db_pass.empty()) {
-        if (!repo->initialize(db_path, db_pass)) {
-            std::cerr << "Falha ao inicializar banco." << std::endl;
-            return 1;
-        }
+    if (!repo->initialize(db_path)) {
+        std::cerr << "Falha ao preparar repositório de dados." << std::endl;
+        return 1;
     }
 
     ApiServer server(repo);

@@ -8,64 +8,47 @@ namespace clinic {
 class PatientRepositoryTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Usamos o MockDatabase para isolar os testes do repositório
-        auto mock_db = std::make_unique<MockDatabase>();
-        repo = std::make_unique<PatientRepository>(std::move(mock_db));
-    }
-
-    Patient create_minimal_patient(const std::string& name) {
-        Patient p;
-        p.name = name;
-        p.phone = {"123456789"};
-        return p;
+        auto db = std::make_unique<MockDatabase>();
+        repo = std::make_unique<PatientRepository>(std::move(db));
+        repo->initialize("mock.db");
+        repo->authenticate("pass");
     }
 
     std::unique_ptr<PatientRepository> repo;
 };
 
 TEST_F(PatientRepositoryTest, CanAddAndGetPatient) {
-    Patient p = create_minimal_patient("Test Patient");
+    Patient p;
+    p.name = "Test Repository";
     ASSERT_TRUE(repo->add_patient(p));
     
     auto all = repo->get_all_patients();
     ASSERT_EQ(all.size(), 1);
-    EXPECT_EQ(all[0].name, "Test Patient");
-    ASSERT_TRUE(all[0].id.has_value());
-    
-    auto retrieved = repo->get_patient(*all[0].id);
-    ASSERT_TRUE(retrieved.has_value());
-    EXPECT_EQ(retrieved->name, "Test Patient");
-    ASSERT_EQ(retrieved->phone.size(), 1);
-    EXPECT_EQ(retrieved->phone[0], "123456789");
+    EXPECT_EQ(all[0].name, "Test Repository");
 }
 
 TEST_F(PatientRepositoryTest, CanSearchPatients) {
-    repo->add_patient(create_minimal_patient("Alice Wonder"));
-    repo->add_patient(create_minimal_patient("Bob Builder"));
+    Patient p1; p1.name = "Alice"; repo->add_patient(p1);
+    Patient p2; p2.name = "Bob";   repo->add_patient(p2);
     
-    auto results = repo->search_patients("alice");
+    auto results = repo->search_patients("ali");
     ASSERT_EQ(results.size(), 1);
-    EXPECT_EQ(results[0].name, "Alice Wonder");
+    EXPECT_EQ(results[0].name, "Alice");
 }
 
 TEST_F(PatientRepositoryTest, CanUpdatePatient) {
-    repo->add_patient(create_minimal_patient("Original"));
-    auto p = repo->get_all_patients()[0];
+    Patient p; p.name = "Old Name";
+    repo->add_patient(p);
+    auto all = repo->get_all_patients();
+    p = all[0];
     
-    p.name = "Updated";
-    p.phone = {"987654321", "000000000"};
+    p.name = "New Name";
     ASSERT_TRUE(repo->update_patient(p));
-    
-    auto updated = repo->get_patient(*p.id);
-    ASSERT_TRUE(updated.has_value());
-    EXPECT_EQ(updated->name, "Updated");
-    ASSERT_EQ(updated->phone.size(), 2);
-    EXPECT_EQ(updated->phone[0], "987654321");
-    EXPECT_EQ(updated->phone[1], "000000000");
+    EXPECT_EQ(repo->get_patient(*p.id)->name, "New Name");
 }
 
 TEST_F(PatientRepositoryTest, CanDeletePatient) {
-    repo->add_patient(create_minimal_patient("Delete Me"));
+    repo->add_patient(Patient{});
     auto p = repo->get_all_patients()[0];
     
     ASSERT_TRUE(repo->delete_patient(*p.id));

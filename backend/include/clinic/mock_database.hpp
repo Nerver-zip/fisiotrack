@@ -11,11 +11,23 @@ namespace clinic {
  */
 class MockDatabase : public IDatabase {
 public:
-    MockDatabase() : m_next_patient_id(1), m_next_eval_id(1) {}
+    MockDatabase() : m_next_patient_id(1), m_next_eval_id(1), m_is_open(false) {}
     ~MockDatabase() override = default;
 
-    bool open(const std::string&, const std::string&) override { return true; }
-    void close() override { m_patients.clear(); m_evaluations.clear(); }
+    bool open(const std::string&, const std::string&) override { 
+        m_is_open = true;
+        return true; 
+    }
+    
+    void close() override { 
+        m_patients.clear(); 
+        m_evaluations.clear(); 
+        m_is_open = false;
+    }
+
+    bool is_open() const override {
+        return m_is_open;
+    }
 
     // --- Pacientes ---
     bool add_patient(const Patient& p) override {
@@ -130,6 +142,7 @@ private:
     std::map<int, std::vector<Evaluation>> m_evaluations;
     int m_next_patient_id;
     int m_next_eval_id;
+    bool m_is_open;
 };
 
 } // namespace clinic

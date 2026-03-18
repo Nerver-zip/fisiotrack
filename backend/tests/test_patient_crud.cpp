@@ -14,7 +14,8 @@ protected:
         
         auto db = std::make_unique<SqliteDatabase>();
         repo = std::make_unique<PatientRepository>(std::move(db));
-        ASSERT_TRUE(repo->initialize(db_path, "master_password"));
+        ASSERT_TRUE(repo->initialize(db_path));
+        ASSERT_TRUE(repo->authenticate("master_password"));
     }
 
     void TearDown() override {
@@ -56,7 +57,6 @@ protected:
 
 TEST_F(PatientCRUDTest, CanAddAndRetrieveFullPatientInfo) {
     Patient p = create_sample_patient("João Silva");
-    
     ASSERT_TRUE(repo->add_patient(p));
     
     auto patients = repo->get_all_patients();
@@ -163,14 +163,16 @@ TEST_F(PatientCRUDTest, PersistenceBetweenSessions) {
     {
         auto database1 = std::make_unique<SqliteDatabase>();
         PatientRepository repo1(std::move(database1));
-        ASSERT_TRUE(repo1.initialize(db_encrypted, test_pass));
+        ASSERT_TRUE(repo1.initialize(db_encrypted));
+        ASSERT_TRUE(repo1.authenticate(test_pass));
         repo1.add_patient(create_sample_patient("PersistCryptoTest"));
     }
     
     {
         auto database2 = std::make_unique<SqliteDatabase>();
         PatientRepository repo2(std::move(database2));
-        ASSERT_TRUE(repo2.initialize(db_encrypted, test_pass));
+        ASSERT_TRUE(repo2.initialize(db_encrypted));
+        ASSERT_TRUE(repo2.authenticate(test_pass));
         auto all = repo2.get_all_patients();
         ASSERT_EQ(all.size(), 1);
         EXPECT_EQ(all[0].name, "PersistCryptoTest");
@@ -179,7 +181,8 @@ TEST_F(PatientCRUDTest, PersistenceBetweenSessions) {
     {
         auto database3 = std::make_unique<SqliteDatabase>();
         PatientRepository repo3(std::move(database3));
-        EXPECT_FALSE(repo3.initialize(db_encrypted, "wrong_password"));
+        ASSERT_TRUE(repo3.initialize(db_encrypted));
+        EXPECT_FALSE(repo3.authenticate("wrong_password"));
     }
 
     std::filesystem::remove(db_encrypted);

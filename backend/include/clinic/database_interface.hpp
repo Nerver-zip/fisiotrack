@@ -15,6 +15,7 @@ public:
 
     virtual bool open(const std::string& db_path, const std::string& key) = 0;
     virtual void close() = 0;
+    virtual bool is_open() const = 0;
 
     // --- Pacientes ---
     virtual bool add_patient(const Patient& p) = 0;

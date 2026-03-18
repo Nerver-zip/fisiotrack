@@ -115,7 +115,7 @@ describe('PatientFormModal', () => {
     expect(mockOnSave).not.toHaveBeenCalled();
 
     // Verifica se o texto do modal de confirmação apareceu
-    expect(screen.getByText(/Confirmar Alterações/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Confirmar Alterações/i })).toBeInTheDocument();
     expect(screen.getByText(/Esta ação não pode ser desfeita/i)).toBeInTheDocument();
     
     // Agora existem dois "Nome Completo" (o label e a lista de mudanças)
@@ -123,7 +123,7 @@ describe('PatientFormModal', () => {
     expect(nameFields.length).toBeGreaterThanOrEqual(2);
 
     // Agora confirma no modal secundário
-    fireEvent.click(screen.getByRole('button', { name: /Confirmar Edição/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Confirmar Alterações/i }));
 
     // Agora sim deve ter chamado o onSave
     expect(mockOnSave).toHaveBeenCalledTimes(1);

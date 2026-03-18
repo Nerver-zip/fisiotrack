@@ -10,8 +10,13 @@ import EvaluationFormModal from './components/modals/EvaluationFormModal';
 function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Autenticação
+  const [token, setToken] = useState<string | null>(localStorage.getItem('fisio_token'));
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   // Estados para Ordenação
   const [sortField, setSortField] = useState<'name' | 'last_eval'>('name');
@@ -29,21 +34,63 @@ function App() {
   const [evaluationToEdit, setEvaluationToEdit] = useState<Evaluation | null>(null);
   const [evaluationToDelete, setEvaluationToDelete] = useState<Evaluation | null>(null);
 
+  const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+    const headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+    const res = await fetch(url, { ...options, headers });
+    if (res.status === 401 && token) {
+      handleLogout();
+      throw new Error('Sessão expirada');
+    }
+    return res;
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('http://localhost:8080/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: loginPassword })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setToken(data.token);
+        localStorage.setItem('fisio_token', data.token);
+        setLoginError(null);
+      } else {
+        setLoginError('Senha incorreta.');
+      }
+    } catch (err) {
+      setLoginError('Erro ao conectar com o servidor.');
+    }
+  };
+
+  const handleLogout = () => {
+    fetchWithAuth('http://localhost:8080/api/logout', { method: 'POST' }).catch(() => {});
+    setToken(null);
+    localStorage.removeItem('fisio_token');
+    setPatients([]);
+  };
+
   const fetchPatients = async (query: string = '') => {
+    if (!token) return;
     try {
       setLoading(true);
       const url = query 
         ? `http://localhost:8080/api/patients?q=${encodeURIComponent(query)}`
         : `http://localhost:8080/api/patients`;
       
-      const response = await fetch(url);
+      const response = await fetchWithAuth(url);
       if (!response.ok) throw new Error('Falha ao buscar pacientes');
       const data = await response.json();
       setPatients(data);
       setError(null);
     } catch (err) {
-      setError('Erro ao conectar com o servidor.');
-      console.error(err);
+      if (token) setError('Erro ao conectar com o servidor.');
     } finally {
       setLoading(false);
     }
@@ -51,7 +98,7 @@ function App() {
 
   const fetchPatientWithHistory = async (id: number) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/patients/${id}`);
+      const response = await fetchWithAuth(`http://localhost:8080/api/patients/${id}`);
       if (response.ok) {
         const data = await response.json();
         setSelectedPatient(data);
@@ -63,15 +110,14 @@ function App() {
   };
 
   useEffect(() => {
-    fetchPatients();
-  }, []);
+    if (token) fetchPatients();
+  }, [token]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     fetchPatients(searchTerm);
   };
 
-  // Lógica de Ordenação
   const sortedPatients = useMemo(() => {
     return [...patients].sort((a, b) => {
       let valA: string = '';
@@ -112,9 +158,8 @@ function App() {
         ? `http://localhost:8080/api/patients/${patient.id}`
         : 'http://localhost:8080/api/patients';
       
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method: isEdit ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patient)
       });
 
@@ -143,9 +188,8 @@ function App() {
         const content = event.target?.result as string;
         const data = JSON.parse(content);
         
-        const response = await fetch('http://localhost:8080/api/patients/import', {
+        const response = await fetchWithAuth('http://localhost:8080/api/patients/import', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
 
@@ -172,9 +216,8 @@ function App() {
         ? `http://localhost:8080/api/patients/${evaluation.patient_id}/evaluations/${evaluation.id}`
         : `http://localhost:8080/api/patients/${evaluation.patient_id}/evaluations`;
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method: isEdit ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(evaluation)
       });
 
@@ -182,7 +225,7 @@ function App() {
         setIsEvalModalOpen(false);
         setEvaluationToEdit(null);
         if (selectedPatient?.id) fetchPatientWithHistory(selectedPatient.id);
-        fetchPatients(searchTerm); // Atualiza dashboard (diagnóstico pode ter mudado)
+        fetchPatients(searchTerm);
       } else {
         alert('Erro ao salvar avaliação');
       }
@@ -194,7 +237,7 @@ function App() {
   const confirmDelete = async () => {
     if (!selectedPatient || !selectedPatient.id) return;
     try {
-      const response = await fetch(`http://localhost:8080/api/patients/${selectedPatient.id}`, {
+      const response = await fetchWithAuth(`http://localhost:8080/api/patients/${selectedPatient.id}`, {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -210,7 +253,7 @@ function App() {
   const confirmDeleteEvaluation = async () => {
     if (!evaluationToDelete || !evaluationToDelete.id) return;
     try {
-      const response = await fetch(`http://localhost:8080/api/patients/${evaluationToDelete.patient_id}/evaluations/${evaluationToDelete.id}`, {
+      const response = await fetchWithAuth(`http://localhost:8080/api/patients/${evaluationToDelete.patient_id}/evaluations/${evaluationToDelete.id}`, {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -257,12 +300,41 @@ function App() {
     setEvaluationToEdit(null);
   };
 
+  if (!token) {
+    return (
+      <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--unimed-bg)' }}>
+        <div className="card" style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
+          <h1 style={{ marginBottom: '2rem' }}>Fisio<span className="logo-unimed">Track</span></h1>
+          <form onSubmit={handleLogin}>
+            <div className="form-group" style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
+              <label>Senha de Acesso</label>
+              <input 
+                type="password" 
+                value={loginPassword} 
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="Digite sua senha master"
+                style={{ width: '100%', padding: '0.8rem', border: '1px solid var(--unimed-border)', borderRadius: '4px' }}
+                autoFocus
+              />
+            </div>
+            {loginError && <p style={{ color: '#d9534f', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</p>}
+            <button type="submit" className="btn-primary" style={{ width: '100%' }}>Entrar</button>
+          </form>
+          <p style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#666' }}>
+            Proteção Zero-Knowledge via SQLCipher (AES-256)
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       <header className="header">
         <h1>Fisio<span className="logo-unimed">Track</span></h1>
-        <div className="user-info">
+        <div className="user-info" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span>Dr. Fisioterapeuta</span>
+          <button onClick={handleLogout} className="btn-cancel" style={{ minWidth: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>Sair</button>
         </div>
       </header>
 

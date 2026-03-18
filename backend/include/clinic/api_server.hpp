@@ -2,6 +2,7 @@
 
 #include <httplib.h>
 #include <memory>
+#include <string>
 #include "patient_repository.hpp"
 
 namespace clinic {
@@ -20,9 +21,11 @@ public:
 private:
     void setup_routes();
     void setup_cors();
+    bool is_authorized(const httplib::Request& req);
 
     httplib::Server m_svr;
     std::shared_ptr<PatientRepository> m_repo;
+    std::string m_session_token;
 };
 
 } // namespace clinic

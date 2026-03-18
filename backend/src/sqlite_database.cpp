@@ -7,20 +7,30 @@ namespace clinic {
 SqliteDatabase::~SqliteDatabase() {
     close();
 }
+bool SqliteDatabase::is_open() const {
+    return m_db != nullptr;
+}
 
 bool SqliteDatabase::open(const std::string& db_path, const std::string& key) {
     if (sqlite3_open(db_path.c_str(), &m_db) != SQLITE_OK) return false;
 
     if (!key.empty()) {
-        if (sqlite3_key(m_db, key.c_str(), static_cast<int>(key.size())) != SQLITE_OK) return false;
+        if (sqlite3_key(m_db, key.c_str(), static_cast<int>(key.size())) != SQLITE_OK) {
+            close();
+            return false;
+        }
     }
 
+    // Ativar chaves estrangeiras para garantir integridade e delete cascade
     sqlite3_exec(m_db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
 
+    // TESTE DE CHAVE: Tentar ler algo do banco para ver se a senha bate.
+    // No SQLCipher, sqlite3_key é lazy. O erro só acontece na primeira operação de I/O.
     char* err_msg = nullptr;
     const char* test_sql = "SELECT count(*) FROM sqlite_master;";
     if (sqlite3_exec(m_db, test_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
         if (err_msg) sqlite3_free(err_msg);
+        close(); // Senha incorreta ou arquivo corrompido
         return false;
     }
 

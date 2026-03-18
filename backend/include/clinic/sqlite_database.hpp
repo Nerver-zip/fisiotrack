@@ -17,6 +17,7 @@ public:
 
     bool open(const std::string& db_path, const std::string& key) override;
     void close() override;
+    bool is_open() const override;
 
     // --- Pacientes ---
     virtual bool add_patient(const Patient& p) override;
