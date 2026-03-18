@@ -23,25 +23,37 @@ void load_env(const std::string& path) {
         if (line.empty() || line[0] == '#') continue;
         size_t sep = line.find('=');
         if (sep != std::string::npos) {
-            setenv(line.substr(0, sep).c_str(), line.substr(sep + 1).c_str(), 1);
+            std::string key = line.substr(0, sep);
+            std::string val = line.substr(sep + 1);
+            // Remove possíveis espaços extras ou \r
+            if (!val.empty() && val.back() == '\r') val.pop_back();
+            setenv(key.c_str(), val.c_str(), 1);
         }
     }
 }
 
 int main() {
-    // Tenta carregar o .env da raiz do projeto
-    load_env(".env");
     load_env("../../.env");
 
     const char* env_mode = std::getenv("DB_TYPE");
     std::string mode = env_mode ? env_mode : "real"; 
 
-    // Configurações do Banco vindas do .env
-    const char* env_path = std::getenv("DB_PATH");
-    std::string db_path = env_path ? env_path : "database/patients.db";
-    
-    const char* env_pass = std::getenv("DB_PASSWORD");
-    std::string db_pass = (env_pass && mode == "mock") ? env_pass : "";
+    std::string db_path;
+    std::string db_pass = "";
+
+    if (mode == "mock") {
+        std::cout << "🛠️  MODO: DESENVOLVIMENTO (Persistente)" << std::endl;
+        const char* m_path = std::getenv("DB_MOCK_PATH");
+        const char* m_pass = std::getenv("DB_MOCK_PASSWORD");
+        db_path = m_path ? m_path : "database/mock_patients.db";
+        db_pass = m_pass ? m_pass : "";
+    } else {
+        std::cout << "🔒 MODO: PRODUÇÃO (Zero-Knowledge)" << std::endl;
+        const char* r_path = std::getenv("DB_REAL_PATH");
+        db_path = r_path ? r_path : "database/patients.db";
+        // Em modo REAL, ignoramos qualquer senha no .env para forçar ZKP puro.
+        db_pass = ""; 
+    }
 
     std::unique_ptr<IDatabase> db = std::make_unique<SqliteDatabase>();
     auto repo = std::make_shared<PatientRepository>(std::move(db));
@@ -57,20 +69,13 @@ int main() {
         return 1;
     }
 
-    if (mode == "mock") {
-        std::cout << "🛠️  MODO: DESENVOLVIMENTO (Persistente)" << std::endl;
-        // No modo mock, se o banco não existir e tivermos uma senha no .env, 
-        // inicializamos ele automaticamente para facilitar o desenvolvimento.
-        if (!repo->is_initialized() && !db_pass.empty()) {
-            std::cout << "✨ Inicializando banco de teste com senha do .env..." << std::endl;
-            if (repo->authenticate(db_pass)) {
-                repo->logout(); // Fecha para que o fluxo de login normal (via App) funcione
-                std::cout << "✅ Banco de teste pronto. Use a senha do .env no login." << std::endl;
-            }
+    // Inicialização automática do arquivo de banco no modo MOCK (para agilidade)
+    if (mode == "mock" && !repo->is_initialized() && !db_pass.empty()) {
+        std::cout << "✨ Inicializando banco de teste automaticamente..." << std::endl;
+        if (repo->authenticate(db_pass)) {
+            repo->logout(); 
+            std::cout << "✅ Banco de teste pronto em: " << db_path << std::endl;
         }
-    } else {
-        std::cout << "🔒 MODO: PRODUÇÃO (Zero-Knowledge)" << std::endl;
-        // Em produção, db_pass é sempre vazio aqui. O banco só abre via API (Login/Setup).
     }
 
     const char* env_port = std::getenv("API_PORT");
