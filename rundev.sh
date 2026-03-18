@@ -68,18 +68,32 @@ run_full_stack() {
 }
 
 run_tests() {
-    echo -e "${BLUE}Limpando cache e Compilando Testes...${NC}"
+    echo -e "${BLUE}Limpando cache e Compilando Testes do Backend...${NC}"
     rm -rf backend/build
     mkdir -p backend/build
     cd backend/build
     cmake ..
     make -j$(nproc) unit_tests
     if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Executando Testes do Backend (Google Test)...${NC}"
         ./unit_tests
     else
-        echo -e "${RED}Erro na compilação dos testes.${NC}"
+        echo -e "${RED}Erro na compilação dos testes do backend.${NC}"
     fi
     cd ../..
+
+    echo -e "\n${BLUE}Executando Testes do Frontend (React Scripts)...${NC}"
+    cd frontend
+    # CI=true faz com que o teste rode apenas uma vez e não entre no modo watch
+    CI=true npm test -- --watchAll=false
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Testes do frontend concluídos com sucesso!${NC}"
+    else
+        echo -e "${RED}Falha em um ou mais testes do frontend.${NC}"
+    fi
+    cd ..
+
+    echo -e "\n${GREEN}Relatório Final de Testes Gerado.${NC}"
     read -p "Pressione Enter para voltar ao menu..."
 }
 
