@@ -10,7 +10,7 @@ Armazena as informações básicas e imutáveis (ou raramente alteradas) do paci
 | Coluna | Tipo | Descrição |
 | :--- | :--- | :--- |
 | `id` | INTEGER | Chave primária (Autoincrement) |
-| `healthcare_id` | TEXT | ID do Convênio ou SUS |
+| `healthcare_id` | TEXT | ID do Convênio |
 | `name` | TEXT | Nome completo do paciente (Obrigatório) |
 | `mom_name` | TEXT | Nome da mãe |
 | `birth_date` | TEXT | Data de nascimento (YYYY-MM-DD) |

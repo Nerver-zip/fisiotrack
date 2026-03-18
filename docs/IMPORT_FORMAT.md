@@ -41,7 +41,7 @@ O arquivo de importação deve ser um arquivo `.json` contendo um array de objet
 | Campo | Tipo | Obrigatório | Descrição |
 | :--- | :--- | :--- | :--- |
 | `name`| string | **Sim** | Nome completo do paciente. Usado como chave para mesclagem. |
-| `healthcare_id` | string | Não | ID do convênio ou SUS. |
+| `healthcare_id` | string | Não | ID do convênio. |
 | `mom_name` | string | Não | Nome da mãe. |
 | `birth_date` | string | Não | Data de nascimento (`YYYY-MM-DD`). |
 | `cpf` | string | Não | CPF formatado ou apenas números. |

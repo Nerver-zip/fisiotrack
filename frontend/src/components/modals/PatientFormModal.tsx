@@ -156,7 +156,7 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
               <h3>📍 Identificação</h3>
               <div className="form-grid">
                 <div className="form-group">
-                  <label htmlFor="healthcare_id">ID Convênio / SUS</label>
+                  <label htmlFor="healthcare_id">ID Convênio</label>
                   <input id="healthcare_id" type="text" name="healthcare_id" value={formData.healthcare_id} onChange={handleChange} />
                 </div>
                 <div className="form-group">
@@ -264,7 +264,7 @@ const PatientFormModal: React.FC<PatientFormModalProps> = ({ isOpen, onClose, on
         onConfirm={handleConfirmSave}
         changedFields={changedFields}
         fieldLabels={{
-          healthcare_id: 'ID Convênio / SUS',
+          healthcare_id: 'ID Convênio',
           name: 'Nome Completo',
           mom_name: 'Nome da Mãe',
           birth_date: 'Data de Nascimento',
