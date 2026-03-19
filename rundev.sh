@@ -1,13 +1,19 @@
 #!/bin/bash
 
+# Cores para o output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# Garantir que estamos no diretório do script
+cd "$(dirname "$0")"
+ROOT_DIR=$(pwd)
+
 cleanup() {
     echo -e "\n${RED}Finalizando processos...${NC}"
-    pkill -P $$
+    # Mata todos os processos filhos desta sessão do script
+    pkill -P $$ 2>/dev/null
     exit
 }
 
@@ -30,68 +36,98 @@ show_menu() {
 
 run_backend_rebuild() {
     echo -e "${BLUE}Limpando cache e Compilando Backend...${NC}"
-    rm -rf backend/build
-    mkdir -p backend/build
-    cd backend/build
-    cmake ..
-    make -j$(nproc) fisio_track_server
-    if [ $? -eq 0 ]; then
+    (
+        cd "$ROOT_DIR"
+        rm -rf backend/build
+        mkdir -p backend/build
+        cd backend/build
+        if ! cmake ..; then
+            echo -e "${RED}Erro no CMake.${NC}"
+            exit 1
+        fi
+        if ! make -j$(nproc) fisio_track_server; then
+            echo -e "${RED}Erro na compilação do Backend.${NC}"
+            exit 1
+        fi
         echo -e "${GREEN}Backend compilado com sucesso! Iniciando...${NC}"
         ./fisio_track_server
-    else
-        echo -e "${RED}Erro na compilação do Backend.${NC}"
+    )
+    if [ $? -ne 0 ]; then
+        read -p "Erro detectado. Pressione Enter para voltar ao menu..."
     fi
-    cd ../..
 }
 
 run_frontend_dev() {
     echo -e "${BLUE}Iniciando Frontend React (Dev)...${NC}"
-    cd frontend
-    npm run dev
-    cd ..
+    (
+        cd "$ROOT_DIR/frontend"
+        npm run dev
+    )
 }
 
 run_full_stack() {
     local rebuild=$1
     if [ "$rebuild" = true ]; then
         echo -e "${BLUE}Buildando Backend...${NC}"
-        mkdir -p backend/build && cd backend/build && cmake .. && make -j$(nproc) fisio_track_server && cd ../..
+        (
+            cd "$ROOT_DIR"
+            rm -rf backend/build
+            mkdir -p backend/build
+            cd backend/build
+            cmake .. && make -j$(nproc) fisio_track_server
+        )
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}Erro no build do backend. Abortando Full Stack.${NC}"
+            read -p "Pressione Enter para voltar ao menu..."
+            return
+        fi
     fi
 
     echo -e "${GREEN}Iniciando Backend em background...${NC}"
-    ./backend/build/fisio_track_server &
+    "$ROOT_DIR/backend/build/fisio_track_server" &
+    BACKEND_PID=$!
     
     echo -e "${GREEN}Iniciando Frontend...${NC}"
-    cd frontend
-    npm run dev
-    cd ..
+    (
+        cd "$ROOT_DIR/frontend"
+        npm run dev
+    )
+
+    # Ao sair do frontend (Ctrl+C), mata o backend se ainda estiver rodando
+    kill $BACKEND_PID 2>/dev/null
 }
 
 run_tests() {
     echo -e "${BLUE}Limpando cache e Compilando Testes do Backend...${NC}"
-    rm -rf backend/build
-    mkdir -p backend/build
-    cd backend/build
-    cmake ..
-    make -j$(nproc) unit_tests
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Executando Testes do Backend (Google Test)...${NC}"
-        ./unit_tests
-    else
-        echo -e "${RED}Erro na compilação dos testes do backend.${NC}"
+    (
+        cd "$ROOT_DIR"
+        rm -rf backend/build
+        mkdir -p backend/build
+        cd backend/build
+        cmake .. && make -j$(nproc) unit_tests
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}Executando Testes do Backend (Google Test)...${NC}"
+            ./unit_tests
+        else
+            echo -e "${RED}Erro na compilação dos testes do backend.${NC}"
+            exit 1
+        fi
+    )
+    if [ $? -ne 0 ]; then
+        read -p "Falha nos testes de backend. Pressione Enter para continuar para o frontend..."
     fi
-    cd ../..
 
     echo -e "\n${BLUE}Executando Testes do Frontend (React Scripts)...${NC}"
-    cd frontend
-    # CI=true faz com que o teste rode apenas uma vez e não entre no modo watch
-    CI=true npm test -- --watchAll=false
+    (
+        cd "$ROOT_DIR/frontend"
+        CI=true npm test -- --watchAll=false
+    )
+    
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Testes do frontend concluídos com sucesso!${NC}"
     else
         echo -e "${RED}Falha em um ou mais testes do frontend.${NC}"
     fi
-    cd ..
 
     echo -e "\n${GREEN}Relatório Final de Testes Gerado.${NC}"
     read -p "Pressione Enter para voltar ao menu..."
@@ -100,11 +136,7 @@ run_tests() {
 while true; do
     show_menu
     read -p "Opção: " opt
-    case $option in # Use lowercase for local check or fix variable name
-        *) ;; 
-    esac
     
-    # Corrigindo para usar a variável opt
     case $opt in
         1) run_backend_rebuild ;;
         2) run_frontend_dev ;;
