@@ -36,6 +36,13 @@ public:
     virtual bool update_evaluation(const Evaluation& e) override;
     virtual bool delete_evaluation(int id) override;
 
+    // --- Auditoria ---
+    virtual bool add_audit_log(const std::string& action, int entity_id, const std::string& details, const std::string& user_info) override;
+    virtual std::vector<AuditLog> get_audit_logs(int limit = 100) override;
+
+    // --- Backup ---
+    virtual bool create_backup(const std::string& target_path) override;
+
 private:
     sqlite3* m_db;
 };

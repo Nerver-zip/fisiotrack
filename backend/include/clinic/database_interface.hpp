@@ -31,6 +31,13 @@ public:
     virtual std::vector<Evaluation> get_patient_evaluations(int patient_id) = 0;
     virtual bool update_evaluation(const Evaluation& e) = 0;
     virtual bool delete_evaluation(int id) = 0;
+
+    // --- Auditoria ---
+    virtual bool add_audit_log(const std::string& action, int entity_id, const std::string& details, const std::string& user_info) = 0;
+    virtual std::vector<AuditLog> get_audit_logs(int limit = 100) = 0;
+
+    // --- Backup ---
+    virtual bool create_backup(const std::string& target_path) = 0;
 };
 
 } // namespace clinic

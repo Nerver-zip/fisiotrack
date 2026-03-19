@@ -6,7 +6,12 @@ namespace clinic {
 
 using json = nlohmann::json;
 
-ApiServer::ApiServer(std::shared_ptr<PatientRepository> repo) : m_repo(std::move(repo)) {
+ApiServer::ApiServer(std::shared_ptr<PatientRepository> repo)
+    : ApiServer(std::move(repo), std::filesystem::current_path()) {}
+
+ApiServer::ApiServer(std::shared_ptr<PatientRepository> repo, const std::filesystem::path& root_path) 
+    : m_repo(std::move(repo)), m_backup_manager(m_repo) {
+    m_backup_manager.set_project_root(root_path);
     setup_cors();
     setup_routes();
 }
@@ -45,13 +50,11 @@ bool ApiServer::is_authorized(const httplib::Request& req) {
 void ApiServer::setup_routes() {
     // --- Autenticação (Zero-Knowledge) ---
 
-    // Checa se o banco de dados já foi criado (com senha mestre)
     m_svr.Get("/api/auth/status", [this](const httplib::Request& req, httplib::Response& res) {
         bool init = m_repo->is_initialized();
         res.set_content(json({{"initialized", init}}).dump(), "application/json");
     });
 
-    // Criação inicial do banco de dados (Primeiro Acesso)
     m_svr.Post("/api/auth/setup", [this](const httplib::Request& req, httplib::Response& res) {
         if (m_repo->is_initialized()) {
             res.status = 400;
@@ -106,7 +109,6 @@ void ApiServer::setup_routes() {
             m_session_manager.invalidate_session(token);
         }
 
-        // Se nenhuma sessão restou, fecha o banco para proteger a memória
         if (m_session_manager.active_sessions_count() == 0 && m_repo->is_authenticated()) {
             m_repo->logout();
         }
@@ -119,7 +121,6 @@ void ApiServer::setup_routes() {
     
     auto wrap_auth = [this](auto handler) {
         return [this, handler](const httplib::Request& req, httplib::Response& res) {
-            // Check geral: limpa sessões expiradas. Se zerar, tranca o banco.
             if (m_session_manager.active_sessions_count() == 0 && m_repo->is_authenticated()) {
                 m_repo->logout();
             }
@@ -133,11 +134,45 @@ void ApiServer::setup_routes() {
         };
     };
 
+    // Helper para extrair identificador seguro do token para logs
+    auto get_user_log_info = [](const httplib::Request& req) -> std::string {
+        auto auth = req.get_header_value("Authorization");
+        if (auth.length() > 15) {
+            // "Bearer " + 8 chars do token
+            return "session_" + auth.substr(7, 8);
+        }
+        return "unknown";
+    };
+
     // Listar / Buscar pacientes
     m_svr.Get("/api/patients", wrap_auth([this](const httplib::Request& req, httplib::Response& res) {
         auto query = req.get_param_value("q");
         auto patients = query.empty() ? m_repo->get_all_patients() : m_repo->search_patients(query);
         res.set_content(json(patients).dump(), "application/json");
+    }));
+
+    // Listar logs de auditoria
+    m_svr.Get("/api/audit", wrap_auth([this](const httplib::Request& req, httplib::Response& res) {
+        auto logs = m_repo->get_audit_logs();
+        res.set_content(json(logs).dump(), "application/json");
+    }));
+
+    // Disparar Backup
+    m_svr.Post("/api/backup", wrap_auth([this](const httplib::Request& req, httplib::Response& res) {
+        auto backup = m_backup_manager.run_backup();
+        if (backup.local_success && backup.upload_success) {
+            res.set_content(json({{"status", "ok"}, {"file", backup.local_path}}).dump(), "application/json");
+        } else if (backup.local_success) {
+            res.status = 502;
+            res.set_content(json({
+                {"error", backup.error_message.empty() ? "Falha no upload para o Google Drive" : backup.error_message},
+                {"file", backup.local_path},
+                {"local_backup_created", true}
+            }).dump(), "application/json");
+        } else {
+            res.status = 500;
+            res.set_content(json({{"error", backup.error_message.empty() ? "Falha ao gerar backup local" : backup.error_message}}).dump(), "application/json");
+        }
     }));
 
     // Detalhes de um paciente
@@ -152,10 +187,10 @@ void ApiServer::setup_routes() {
     }));
 
     // Criar novo paciente
-    m_svr.Post("/api/patients", wrap_auth([this](const httplib::Request& req, httplib::Response& res) {
+    m_svr.Post("/api/patients", wrap_auth([this, get_user_log_info](const httplib::Request& req, httplib::Response& res) {
         try {
             auto p = json::parse(req.body).get<Patient>();
-            if (m_repo->add_patient(p)) {
+            if (m_repo->add_patient(p, get_user_log_info(req))) {
                 res.status = 201;
                 res.set_content(json({{"status", "ok"}}).dump(), "application/json");
             } else {
@@ -167,7 +202,7 @@ void ApiServer::setup_routes() {
     }));
 
     // Atualizar paciente existente
-    m_svr.Put(R"(/api/patients/(\d+))", wrap_auth([this](const httplib::Request& req, httplib::Response& res) {
+    m_svr.Put(R"(/api/patients/(\d+))", wrap_auth([this, get_user_log_info](const httplib::Request& req, httplib::Response& res) {
         try {
             int id = std::stoi(req.matches[1]);
             auto existing_opt = m_repo->get_patient(id);
@@ -189,7 +224,7 @@ void ApiServer::setup_routes() {
             if (patch.contains("profession")) p.profession = patch["profession"];
             if (patch.contains("phone")) p.phone = patch["phone"].get<std::vector<std::string>>();
 
-            if (m_repo->update_patient(p)) {
+            if (m_repo->update_patient(p, get_user_log_info(req))) {
                 res.status = 200;
                 res.set_content(json({{"status", "ok"}}).dump(), "application/json");
             } else {
@@ -201,10 +236,10 @@ void ApiServer::setup_routes() {
     }));
 
     // Importar pacientes (JSON)
-    m_svr.Post("/api/patients/import", wrap_auth([this](const httplib::Request& req, httplib::Response& res) {
+    m_svr.Post("/api/patients/import", wrap_auth([this, get_user_log_info](const httplib::Request& req, httplib::Response& res) {
         try {
             auto patients = json::parse(req.body).get<std::vector<Patient>>();
-            m_repo->import_patients(patients);
+            m_repo->import_patients(patients, get_user_log_info(req));
             res.status = 201;
             res.set_content(json({{"status", "ok"}}).dump(), "application/json");
         } catch (const std::exception& e) {
@@ -216,9 +251,9 @@ void ApiServer::setup_routes() {
     }));
 
     // Remover paciente
-    m_svr.Delete(R"(/api/patients/(\d+))", wrap_auth([this](const httplib::Request& req, httplib::Response& res) {
+    m_svr.Delete(R"(/api/patients/(\d+))", wrap_auth([this, get_user_log_info](const httplib::Request& req, httplib::Response& res) {
         int id = std::stoi(req.matches[1]);
-        if (m_repo->delete_patient(id)) {
+        if (m_repo->delete_patient(id, get_user_log_info(req))) {
             res.set_content(json({{"status", "deleted"}}).dump(), "application/json");
         } else {
             res.status = 500;
@@ -227,12 +262,12 @@ void ApiServer::setup_routes() {
 
     // --- Endpoints de Avaliações ---
 
-    m_svr.Post(R"(/api/patients/(\d+)/evaluations)", wrap_auth([this](const httplib::Request& req, httplib::Response& res) {
+    m_svr.Post(R"(/api/patients/(\d+)/evaluations)", wrap_auth([this, get_user_log_info](const httplib::Request& req, httplib::Response& res) {
         try {
             int patient_id = std::stoi(req.matches[1]);
             auto e = json::parse(req.body).get<Evaluation>();
             e.patient_id = patient_id;
-            if (m_repo->add_evaluation(e)) {
+            if (m_repo->add_evaluation(e, get_user_log_info(req))) {
                 res.status = 201;
                 res.set_content(json({{"status", "ok"}}).dump(), "application/json");
             } else {
@@ -249,14 +284,14 @@ void ApiServer::setup_routes() {
         res.set_content(json(evals).dump(), "application/json");
     }));
 
-    m_svr.Put(R"(/api/patients/(\d+)/evaluations/(\d+))", wrap_auth([this](const httplib::Request& req, httplib::Response& res) {
+    m_svr.Put(R"(/api/patients/(\d+)/evaluations/(\d+))", wrap_auth([this, get_user_log_info](const httplib::Request& req, httplib::Response& res) {
         try {
             int patient_id = std::stoi(req.matches[1]);
             int eval_id = std::stoi(req.matches[2]);
             auto e = json::parse(req.body).get<Evaluation>();
             e.id = eval_id;
             e.patient_id = patient_id;
-            if (m_repo->update_evaluation(e)) {
+            if (m_repo->update_evaluation(e, get_user_log_info(req))) {
                 res.status = 200;
                 res.set_content(json({{"status", "ok"}}).dump(), "application/json");
             } else {
@@ -267,9 +302,9 @@ void ApiServer::setup_routes() {
         }
     }));
 
-    m_svr.Delete(R"(/api/patients/(\d+)/evaluations/(\d+))", wrap_auth([this](const httplib::Request& req, httplib::Response& res) {
+    m_svr.Delete(R"(/api/patients/(\d+)/evaluations/(\d+))", wrap_auth([this, get_user_log_info](const httplib::Request& req, httplib::Response& res) {
         int eval_id = std::stoi(req.matches[2]);
-        if (m_repo->delete_evaluation(eval_id)) {
+        if (m_repo->delete_evaluation(eval_id, get_user_log_info(req))) {
             res.set_content(json({{"status", "deleted"}}).dump(), "application/json");
         } else {
             res.status = 500;

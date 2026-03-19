@@ -66,9 +66,18 @@ bool SqliteDatabase::open(const std::string& db_path, const std::string& key) {
                                   "treatment_plan TEXT,"
                                   "FOREIGN KEY(patient_id) REFERENCES patients(id) ON DELETE CASCADE);";
 
+    const char* sql_audit = "CREATE TABLE IF NOT EXISTS audit_logs ("
+                            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                            "timestamp TEXT DEFAULT (datetime('now')),"
+                            "action TEXT NOT NULL,"
+                            "entity_id INTEGER,"
+                            "details TEXT,"
+                            "user_info TEXT);";
+
     if (sqlite3_exec(m_db, sql_patients, nullptr, nullptr, &err_msg) != SQLITE_OK ||
         sqlite3_exec(m_db, sql_phones, nullptr, nullptr, &err_msg) != SQLITE_OK ||
-        sqlite3_exec(m_db, sql_evaluations, nullptr, nullptr, &err_msg) != SQLITE_OK) {
+        sqlite3_exec(m_db, sql_evaluations, nullptr, nullptr, &err_msg) != SQLITE_OK ||
+        sqlite3_exec(m_db, sql_audit, nullptr, nullptr, &err_msg) != SQLITE_OK) {
         if (err_msg) sqlite3_free(err_msg);
         return false;
     }
@@ -409,6 +418,70 @@ bool SqliteDatabase::delete_evaluation(int id) {
     bool success = (sqlite3_step(stmt) == SQLITE_DONE);
     sqlite3_finalize(stmt);
     return success;
+}
+
+bool SqliteDatabase::add_audit_log(const std::string& action, int entity_id, const std::string& details, const std::string& user_info) {
+    const char* sql = "INSERT INTO audit_logs (action, entity_id, details, user_info) VALUES (?, ?, ?, ?);";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+
+    sqlite3_bind_text(stmt, 1, action.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 2, entity_id);
+    sqlite3_bind_text(stmt, 3, details.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, user_info.c_str(), -1, SQLITE_TRANSIENT);
+
+    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    return success;
+}
+
+std::vector<AuditLog> SqliteDatabase::get_audit_logs(int limit) {
+    std::vector<AuditLog> logs;
+    const char* sql = "SELECT * FROM audit_logs ORDER BY id DESC LIMIT ?;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return logs;
+
+    sqlite3_bind_int(stmt, 1, limit);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        auto get_text = [&](int col) -> std::string {
+            const unsigned char* text = sqlite3_column_text(stmt, col);
+            return text ? reinterpret_cast<const char*>(text) : "";
+        };
+
+        logs.push_back(AuditLog{
+            sqlite3_column_int(stmt, 0), // id
+            get_text(1),                 // timestamp
+            get_text(2),                 // action
+            sqlite3_column_int(stmt, 3), // entity_id
+            get_text(4),                 // details
+            get_text(5)                  // user_info
+        });
+    }
+    sqlite3_finalize(stmt);
+    return logs;
+}
+
+bool SqliteDatabase::create_backup(const std::string& target_path) {
+    if (!m_db) return false;
+
+    // Remove arquivo se já existir para o VACUUM INTO funcionar
+    if (std::filesystem::exists(target_path)) {
+        std::filesystem::remove(target_path);
+    }
+
+    // VACUUM INTO cria uma cópia consistente e compactada do banco atual
+    // O banco destino herda a mesma criptografia (chave) do banco origem no SQLCipher.
+    std::string sql = "VACUUM INTO '" + target_path + "';";
+    char* err_msg = nullptr;
+    if (sqlite3_exec(m_db, sql.c_str(), nullptr, nullptr, &err_msg) != SQLITE_OK) {
+        if (err_msg) {
+            std::cerr << "Erro no backup: " << err_msg << std::endl;
+            sqlite3_free(err_msg);
+        }
+        return false;
+    }
+    return true;
 }
 
 } // namespace clinic

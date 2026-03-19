@@ -5,6 +5,8 @@
 #include <string>
 #include "patient_repository.hpp"
 #include "session_manager.hpp"
+#include "backup_manager.hpp"
+#include <filesystem>
 
 namespace clinic {
 
@@ -15,6 +17,7 @@ namespace clinic {
 class ApiServer {
 public:
     explicit ApiServer(std::shared_ptr<PatientRepository> repo);
+    explicit ApiServer(std::shared_ptr<PatientRepository> repo, const std::filesystem::path& root_path);
     
     void listen(const std::string& host, int port);
     void stop();
@@ -27,6 +30,7 @@ private:
     httplib::Server m_svr;
     std::shared_ptr<PatientRepository> m_repo;
     SessionManager m_session_manager;
+    BackupManager m_backup_manager;
 };
 
 } // namespace clinic

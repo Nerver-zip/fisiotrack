@@ -44,14 +44,36 @@ public:
         m_db->close();
     }
 
-    bool add_patient(const Patient& p) { return m_db->add_patient(p); }
+    bool add_patient(const Patient& p, const std::string& user_info = "system") { 
+        bool success = m_db->add_patient(p); 
+        if (success) {
+            m_db->add_audit_log("CREATE_PATIENT", 0, "Name: " + p.name, user_info);
+        }
+        return success;
+    }
+
     std::optional<Patient> get_patient(int id) { return m_db->get_patient(id); }
     std::vector<Patient> get_all_patients() { return m_db->get_all_patients(); }
     std::vector<Patient> search_patients(const std::string& query) { return m_db->search_patients(query); }
-    bool update_patient(const Patient& p) { return m_db->update_patient(p); }
-    bool delete_patient(int id) { return m_db->delete_patient(id); }
 
-    void import_patients(const std::vector<Patient>& patients) {
+    bool update_patient(const Patient& p, const std::string& user_info = "system") { 
+        bool success = m_db->update_patient(p); 
+        if (success && p.id) {
+            m_db->add_audit_log("UPDATE_PATIENT", *p.id, "Name: " + p.name, user_info);
+        }
+        return success;
+    }
+
+    bool delete_patient(int id, const std::string& user_info = "system") { 
+        bool success = m_db->delete_patient(id); 
+        if (success) {
+            m_db->add_audit_log("DELETE_PATIENT", id, "", user_info);
+        }
+        return success;
+    }
+
+    void import_patients(const std::vector<Patient>& patients, const std::string& user_info = "system") {
+        m_db->add_audit_log("IMPORT_START", 0, "Count: " + std::to_string(patients.size()), user_info);
         std::map<std::string, Patient> merged_patients;
         for (const auto& p : patients) {
             if (p.name.empty()) continue;
@@ -87,23 +109,57 @@ public:
                         updated = true;
                     }
                 }
-                if (updated) update_patient(*db_patient);
+                if (updated) update_patient(*db_patient, user_info);
 
                 for (auto eval : p.evaluations) {
                     eval.patient_id = *db_patient->id;
-                    add_evaluation(eval);
+                    add_evaluation(eval, user_info);
                 }
             } else {
-                add_patient(p);
+                add_patient(p, user_info);
             }
         }
+        m_db->add_audit_log("IMPORT_END", 0, "", user_info);
     }
 
     // --- Avaliações ---
-    bool add_evaluation(const Evaluation& e) { return m_db->add_evaluation(e); }
+    bool add_evaluation(const Evaluation& e, const std::string& user_info = "system") { 
+        bool success = m_db->add_evaluation(e); 
+        if (success) {
+            m_db->add_audit_log("CREATE_EVALUATION", e.patient_id, "Date: " + e.evaluation_date, user_info);
+        }
+        return success;
+    }
+
     std::vector<Evaluation> get_patient_evaluations(int patient_id) { return m_db->get_patient_evaluations(patient_id); }
-    bool update_evaluation(const Evaluation& e) { return m_db->update_evaluation(e); }
-    bool delete_evaluation(int id) { return m_db->delete_evaluation(id); }
+
+    bool update_evaluation(const Evaluation& e, const std::string& user_info = "system") { 
+        bool success = m_db->update_evaluation(e); 
+        if (success && e.id) {
+            m_db->add_audit_log("UPDATE_EVALUATION", e.patient_id, "Eval ID: " + std::to_string(*e.id), user_info);
+        }
+        return success;
+    }
+
+    bool delete_evaluation(int id, const std::string& user_info = "system") { 
+        bool success = m_db->delete_evaluation(id); 
+        if (success) {
+            m_db->add_audit_log("DELETE_EVALUATION", 0, "Eval ID: " + std::to_string(id), user_info);
+        }
+        return success;
+    }
+
+    std::vector<AuditLog> get_audit_logs(int limit = 100) {
+        return m_db->get_audit_logs(limit);
+    }
+
+    bool create_backup(const std::string& target_path) {
+        return m_db->create_backup(target_path);
+    }
+
+    IDatabase* get_database() {
+        return m_db.get();
+    }
 
 private:
     std::unique_ptr<IDatabase> m_db;

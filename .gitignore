@@ -8,8 +8,11 @@ lib/
 *.exe
 *.out
 compile_commands.json
+.venv
+__pycache__/
 
 # --- Banco de Dados e Segurança ---
+config/
 *.db
 *.sqlite
 *.enc

@@ -136,4 +136,27 @@ inline void from_json(const nlohmann::json& j, Patient& p) {
     p.evaluations = j.value("evaluations", std::vector<Evaluation>{});
 }
 
+/**
+ * @brief Registro de auditoria para rastreamento de modificações.
+ */
+struct AuditLog {
+    int id;
+    std::string timestamp;
+    std::string action;
+    int entity_id;
+    std::string details;
+    std::string user_info;
+};
+
+inline void to_json(nlohmann::json& j, const AuditLog& l) {
+    j = nlohmann::json{
+        {"id", l.id},
+        {"timestamp", l.timestamp},
+        {"action", l.action},
+        {"entity_id", l.entity_id},
+        {"details", l.details},
+        {"user_info", l.user_info}
+    };
+}
+
 } // namespace clinic

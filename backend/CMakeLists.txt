@@ -72,6 +72,8 @@ add_executable(unit_tests
     tests/test_api_server.cpp
     tests/test_import_logic.cpp
     tests/test_session_manager.cpp
+    tests/test_audit_logs.cpp
+    tests/test_backup_api.cpp
 )
 
 target_link_libraries(unit_tests PRIVATE clinic_lib gtest_main)

@@ -6,6 +6,8 @@ import ConfirmationModal from './components/modals/ConfirmationModal';
 import PatientDetailModal from './components/modals/PatientDetailModal';
 import PatientFormModal from './components/modals/PatientFormModal';
 import EvaluationFormModal from './components/modals/EvaluationFormModal';
+import AuditLogModal from './components/modals/AuditLogModal';
+import SyncIcon, { SyncState } from './components/common/SyncIcon';
 
 function App() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,6 +39,11 @@ function App() {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isEvalModalOpen, setIsEvalModalOpen] = useState(false);
   const [isDeleteEvalModalOpen, setIsDeleteEvalModalOpen] = useState(false);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  
+  // Smart Auto-Sync
+  const [syncStatus, setSyncStatus] = useState<SyncState>('sincronizado');
+  const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [patientToEdit, setPatientToEdit] = useState<Patient | null>(null);
@@ -68,6 +75,14 @@ function App() {
       handleLogout();
       throw new Error('Sessão expirada');
     }
+
+    // Interceptar mutações para o Smart Auto-Sync
+    if (res.ok && options.method && ['POST', 'PUT', 'DELETE'].includes(options.method.toUpperCase())) {
+      if (!url.includes('/api/backup') && !url.includes('/api/auth') && !url.includes('/api/login') && !url.includes('/api/logout')) {
+        setSyncStatus('pendente');
+      }
+    }
+
     return res;
   };
 
@@ -124,13 +139,54 @@ function App() {
     }
   };
 
+  const safeLogout = async () => {
+    if (syncStatus === 'pendente' || syncStatus === 'erro') {
+      await handleBackup();
+    }
+    handleLogout();
+  };
+
   const handleLogout = () => {
     fetchWithAuth('http://localhost:8080/api/logout', { method: 'POST' }).catch(() => {});
     setToken(null);
     localStorage.removeItem('fisio_token');
     setPatients([]);
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    setSyncStatus('sincronizado');
   };
+
+  const handleBackup = async () => {
+    setSyncStatus('sincronizando');
+    try {
+      const res = await fetchWithAuth('http://localhost:8080/api/backup', { method: 'POST' });
+      if (res.ok) {
+        setSyncStatus('sincronizado');
+      } else {
+        const data = await res.json();
+        console.error('Erro no backup:', data.error);
+        setSyncStatus('erro');
+      }
+    } catch (err) {
+      console.error('Erro de conexão ao tentar realizar backup:', err);
+      setSyncStatus('erro');
+    }
+  };
+
+  // Smart Auto-Sync Timer
+  useEffect(() => {
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+
+    if (syncStatus === 'pendente') {
+      syncTimerRef.current = setTimeout(() => {
+        handleBackup();
+      }, 5 * 60 * 1000); // 5 minutos
+    }
+
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
+  }, [syncStatus]);
 
   const resetIdleTimer = () => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -468,8 +524,15 @@ function App() {
       <header className="header">
         <img src="/assets/logo.jpg" alt="FisioTrack" className="logo-app" />
         <div className="user-info" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div 
+            style={{ cursor: syncStatus === 'erro' ? 'pointer' : 'default' }} 
+            onClick={syncStatus === 'erro' ? handleBackup : undefined}
+          >
+            <SyncIcon state={syncStatus} size={32} />
+          </div>
           <span>Dr. Fisioterapeuta</span>
-          <button onClick={handleLogout} className="btn-cancel" style={{ minWidth: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>Sair</button>
+          <button onClick={() => setIsAuditModalOpen(true)} className="btn-cancel" style={{ minWidth: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem', border: '1px solid #ccc' }}>Auditoria</button>
+          <button onClick={safeLogout} className="btn-cancel" style={{ minWidth: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>Sair</button>
         </div>
       </header>
 
@@ -632,6 +695,12 @@ function App() {
         cancelText="Voltar"
         onConfirm={confirmDeleteEvaluation}
         onCancel={() => setIsDeleteEvalModalOpen(false)}
+      />
+
+      <AuditLogModal 
+        isOpen={isAuditModalOpen}
+        onClose={() => setIsAuditModalOpen(false)}
+        fetchWithAuth={fetchWithAuth}
       />
     </div>
   );

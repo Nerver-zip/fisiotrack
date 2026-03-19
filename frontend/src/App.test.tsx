@@ -5,6 +5,13 @@ import App from './App';
 // Mock do fetch global
 global.fetch = jest.fn() as jest.Mock;
 
+// Mock do componente SyncIcon para testar o estado no App
+jest.mock('./components/common/SyncIcon', () => {
+  return function DummySyncIcon({ state }: { state: string }) {
+    return <div data-testid="sync-status">{state}</div>;
+  };
+});
+
 describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -269,6 +276,56 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
     const expectedTruncated = longDiagnosis.substring(0, 30) + '...';
     await waitFor(() => {
       expect(screen.getByText(expectedTruncated)).toBeInTheDocument();
+    });
+  });
+
+  test('deve mudar status de sincronização para pendente após uma mutação (POST)', async () => {
+    mockStatusCall(true);
+
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ token: 'mock_token' }),
+    });
+
+    // Mock pacientes iniciais
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ([]),
+    });
+
+    render(<App />);
+    
+    // Login
+    fireEvent.change(await screen.findByLabelText(/Senha de Acesso/i), { target: { value: 'pass' } });
+    fireEvent.click(screen.getByRole('button', { name: /Entrar/i }));
+
+    // Verifica status inicial
+    await waitFor(() => {
+      expect(screen.getByTestId('sync-status')).toHaveTextContent('sincronizado');
+    });
+
+    // Mock para POST de novo paciente
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: async () => ({ status: 'ok' }),
+    });
+
+    // Abre modal e preenche
+    fireEvent.click(screen.getByText(/\+ Novo Paciente/i));
+    
+    // Preenche apenas o nome para disparar o submit (considerando validações mínimas)
+    const nameInput = screen.getByLabelText(/Nome Completo/i);
+    fireEvent.change(nameInput, { target: { value: 'Novo Paciente Sync Test' } });
+    
+    // Clica em salvar
+    fireEvent.click(screen.getByText(/Salvar Ficha/i));
+
+    // Verifica se o status mudou para pendente
+    await waitFor(() => {
+      expect(screen.getByTestId('sync-status')).toHaveTextContent('pendente');
     });
   });
 });

@@ -137,6 +137,19 @@ public:
         return false;
     }
 
+    bool add_audit_log(const std::string& action, int entity_id, const std::string& details, const std::string& user_info) override {
+        // Mock apenas confirma sucesso
+        return true;
+    }
+
+    std::vector<AuditLog> get_audit_logs(int limit) override {
+        return {}; // Mock retorna vazio
+    }
+
+    bool create_backup(const std::string& target_path) override {
+        return true; // Simula sucesso
+    }
+
 private:
     std::map<int, Patient> m_patients;
     std::map<int, std::vector<Evaluation>> m_evaluations;
