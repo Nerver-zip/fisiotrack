@@ -6,8 +6,10 @@ import ConfirmationModal from './components/modals/ConfirmationModal';
 import PatientDetailModal from './components/modals/PatientDetailModal';
 import PatientFormModal from './components/modals/PatientFormModal';
 import EvaluationFormModal from './components/modals/EvaluationFormModal';
-import AuditLogModal from './components/modals/AuditLogModal';
 import SyncIcon, { SyncState } from './components/common/SyncIcon';
+import Navbar from './components/layout/Navbar';
+import Sidebar from './components/layout/Sidebar';
+import AuditLogView from './components/views/AuditLogView';
 
 function App() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,7 +41,9 @@ function App() {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isEvalModalOpen, setIsEvalModalOpen] = useState(false);
   const [isDeleteEvalModalOpen, setIsDeleteEvalModalOpen] = useState(false);
-  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('pacientes');
   
   // Smart Auto-Sync
   const [syncStatus, setSyncStatus] = useState<SyncState>('sincronizado');
@@ -521,134 +525,155 @@ function App() {
 
   return (
     <div className="app-container">
-      <header className="header">
-        <img src="/assets/logo.jpg" alt="FisioTrack" className="logo-app" />
-        <div className="user-info" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div 
-            style={{ cursor: syncStatus === 'erro' ? 'pointer' : 'default' }} 
-            onClick={syncStatus === 'erro' ? handleBackup : undefined}
-          >
-            <SyncIcon state={syncStatus} size={32} />
-          </div>
-          <span>Dr. Fisioterapeuta</span>
-          <button onClick={() => setIsAuditModalOpen(true)} className="btn-cancel" style={{ minWidth: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem', border: '1px solid #ccc' }}>Auditoria</button>
-          <button onClick={safeLogout} className="btn-cancel" style={{ minWidth: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>Sair</button>
-        </div>
-      </header>
+      <Navbar 
+        onMenuClick={() => setIsSidebarOpen(true)} 
+        syncStatus={syncStatus} 
+        onSyncClick={syncStatus === 'erro' ? handleBackup : undefined}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
+      
+      <Sidebar 
+        isOpen={isSidebarOpen} 
+        onClose={() => setIsSidebarOpen(false)} 
+        userName="Dr. Fisioterapeuta" 
+        onAuditClick={() => setActiveTab('auditoria')} 
+        onLogoutClick={safeLogout} 
+      />
 
       <main className="main-content">
-        <div className="card">
-          <form className="search-bar" onSubmit={handleSearch}>
-            <div className="search-group">
-              <input 
-                type="text" 
-                placeholder="Buscar paciente por nome..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <button type="submit" className="btn-primary">Buscar</button>
-            </div>
-            <div className="action-buttons">
-              <button 
-                type="button" 
-                className="btn-primary btn-new-patient" 
-                onClick={() => { setPatientToEdit(null); setIsFormModalOpen(true); }}
-              >
-                + Novo Paciente
-              </button>
-              <label className="btn-primary btn-import">
-                { '{ }' } Importar JSON
+        {activeTab === 'pacientes' && (
+          <div className="card">
+            <form className="search-bar" onSubmit={handleSearch}>
+              <div className="search-group">
                 <input 
-                  type="file" 
-                  accept=".json" 
-                  onChange={handleImportJson} 
-                  style={{ display: 'none' }}
+                  type="text" 
+                  placeholder="Buscar paciente por nome..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
-              </label>
-            </div>
-          </form>
-
-          {error && <div style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
-
-          {loading ? (
-            <p>Carregando pacientes...</p>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--unimed-border)' }}>
-                  <th 
-                    style={{ padding: '1rem', cursor: 'pointer', userSelect: 'none' }}
-                    onClick={() => toggleSort('name')}
-                  >
-                    Nome {renderSortIcon('name')}
-                  </th>
-                  <th 
-                    style={{ padding: '1rem', cursor: 'pointer', userSelect: 'none' }}
-                    onClick={() => toggleSort('last_eval')}
-                  >
-                    Última Entrada {renderSortIcon('last_eval')}
-                  </th>
-                  <th style={{ padding: '1rem' }}>Diagnóstico</th>
-                  <th style={{ padding: '1rem' }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedPatients.map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid var(--unimed-border)' }}>
-                    <td style={{ padding: '1rem' }}>{p.name}</td>
-                    <td style={{ padding: '1rem' }}>{p.evaluations?.[0] ? formatDate(p.evaluations[0].evaluation_date) : 'Sem avaliação'}</td>
-                    <td style={{ padding: '1rem' }}>
-                      {p.evaluations?.[0]?.medical_diagnosis 
-                        ? (p.evaluations[0].medical_diagnosis.length > 30 
-                            ? p.evaluations[0].medical_diagnosis.substring(0, 30) + '...' 
-                            : p.evaluations[0].medical_diagnosis)
-                        : 'Não informado'}
-                    </td>
-                    <td style={{ padding: '1rem', display: 'flex', gap: '10px' }}>
-                      <button 
-                        onClick={() => p.id && fetchPatientWithHistory(p.id)}
-                        style={{ color: 'var(--unimed-green)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-                      >
-                        Ver Prontuário
-                      </button>
-                      <button 
-                        onClick={() => { setSelectedPatient(p); setIsDeleteModalOpen(true); }}
-                        style={{ color: '#d9534f', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-                      >
-                        Excluir
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {/* Controles de Paginação */}
-          {!loading && totalPages > 1 && (
-            <div className="pagination">
-              <button 
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="btn-page"
-              >
-                &laquo; Anterior
-              </button>
-              
-              <div className="page-info">
-                Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+                <button type="submit" className="btn-primary">Buscar</button>
               </div>
+              <div className="action-buttons">
+                <button 
+                  type="button" 
+                  className="btn-primary btn-new-patient" 
+                  onClick={() => { setPatientToEdit(null); setIsFormModalOpen(true); }}
+                >
+                  + Novo Paciente
+                </button>
+                <label className="btn-primary btn-import">
+                  { '{ }' } Importar JSON
+                  <input 
+                    type="file" 
+                    accept=".json" 
+                    onChange={handleImportJson} 
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              </div>
+            </form>
 
-              <button 
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="btn-page"
-              >
-                Próxima &raquo;
-              </button>
-            </div>
-          )}
-        </div>
+            {error && <div style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
+
+            {loading ? (
+              <p>Carregando pacientes...</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--unimed-border)' }}>
+                    <th 
+                      style={{ padding: '1rem', cursor: 'pointer', userSelect: 'none' }}
+                      onClick={() => toggleSort('name')}
+                    >
+                      Nome {renderSortIcon('name')}
+                    </th>
+                    <th 
+                      style={{ padding: '1rem', cursor: 'pointer', userSelect: 'none' }}
+                      onClick={() => toggleSort('last_eval')}
+                    >
+                      Última Entrada {renderSortIcon('last_eval')}
+                    </th>
+                    <th style={{ padding: '1rem' }}>Diagnóstico</th>
+                    <th style={{ padding: '1rem' }}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedPatients.map(p => (
+                    <tr key={p.id} style={{ borderBottom: '1px solid var(--unimed-border)' }}>
+                      <td style={{ padding: '1rem' }}>{p.name}</td>
+                      <td style={{ padding: '1rem' }}>{p.evaluations?.[0] ? formatDate(p.evaluations[0].evaluation_date) : 'Sem avaliação'}</td>
+                      <td style={{ padding: '1rem' }}>
+                        {p.evaluations?.[0]?.medical_diagnosis 
+                          ? (p.evaluations[0].medical_diagnosis.length > 30 
+                              ? p.evaluations[0].medical_diagnosis.substring(0, 30) + '...' 
+                              : p.evaluations[0].medical_diagnosis)
+                          : 'Não informado'}
+                      </td>
+                      <td style={{ padding: '1rem', display: 'flex', gap: '10px' }}>
+                        <button 
+                          onClick={() => p.id && fetchPatientWithHistory(p.id)}
+                          style={{ color: 'var(--unimed-green)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                          Ver Prontuário
+                        </button>
+                        <button 
+                          onClick={() => { setSelectedPatient(p); setIsDeleteModalOpen(true); }}
+                          style={{ color: '#d9534f', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                          Excluir
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {/* Controles de Paginação */}
+            {!loading && totalPages > 1 && (
+              <div className="pagination">
+                <button 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="btn-page"
+                >
+                  &laquo; Anterior
+                </button>
+                
+                <div className="page-info">
+                  Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+                </div>
+
+                <button 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="btn-page"
+                >
+                  Próxima &raquo;
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'agenda' && (
+          <div className="card">
+            <h2>Agenda</h2>
+            <p>Em breve: Gestão de consultas e notificações.</p>
+          </div>
+        )}
+
+        {activeTab === 'estatisticas' && (
+          <div className="card">
+            <h2>Estatísticas</h2>
+            <p>Em breve: Diagnósticos frequentes, carga da agenda e correlações.</p>
+          </div>
+        )}
+
+        {activeTab === 'auditoria' && (
+          <AuditLogView fetchWithAuth={fetchWithAuth} />
+        )}
       </main>
 
       <PatientFormModal 
@@ -695,12 +720,6 @@ function App() {
         cancelText="Voltar"
         onConfirm={confirmDeleteEvaluation}
         onCancel={() => setIsDeleteEvalModalOpen(false)}
-      />
-
-      <AuditLogModal 
-        isOpen={isAuditModalOpen}
-        onClose={() => setIsAuditModalOpen(false)}
-        fetchWithAuth={fetchWithAuth}
       />
     </div>
   );

@@ -167,14 +167,70 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
       json: async () => ({ status: 'logged out' }),
     });
 
-    render(<App />);
+    const { container } = render(<App />);
     
+    // Abre o sidebar primeiro
+    const menuTrigger = container.querySelector('.navbar-menu-trigger');
+    if (menuTrigger) fireEvent.click(menuTrigger);
+
     const logoutButton = await screen.findByText(/Sair/i);
     fireEvent.click(logoutButton);
 
     await waitFor(() => {
       expect(localStorage.getItem('fisio_token')).toBeNull();
       expect(screen.getByText(/Senha de Acesso/i)).toBeInTheDocument();
+    });
+  });
+
+  test('deve navegar entre as abas corretamente', async () => {
+    mockStatusCall(true);
+    (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ token: 'tk' }) });
+    (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, status: 200, json: async () => ([]) });
+
+    const { container } = render(<App />);
+    
+    // Login
+    fireEvent.change(await screen.findByLabelText(/Senha de Acesso/i), { target: { value: 'pass' } });
+    fireEvent.click(screen.getByRole('button', { name: /Entrar/i }));
+
+    // Por padrão está em Pacientes
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Buscar paciente por nome/i)).toBeInTheDocument();
+    });
+
+    // Agenda (Simulando clique na aba)
+    const agendaTab = screen.getByText(/Agenda/i).closest('button');
+    // Nota: Atualmente está 'disabled' no componente, então precisamos forçar ou remover o disabled para testar.
+    // Se estiver disabled, fireEvent.click não fará nada.
+    // Como quero testar a lógica do App, vou verificar se as seções existem no App.tsx.
+
+    // Auditoria (Via Sidebar)
+    const menuTrigger = container.querySelector('.navbar-menu-trigger');
+    if (menuTrigger) fireEvent.click(menuTrigger);
+    
+    const auditLink = await screen.findByText(/Auditoria/i);
+    
+    // Mock para carregar logs ao entrar na aba
+    (fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ([]),
+    });
+
+    fireEvent.click(auditLink);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Registro de Auditoria/i)).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText(/Buscar paciente por nome/i)).not.toBeInTheDocument();
+    });
+
+    // Volta para Pacientes
+    const pacientesTab = screen.getByText(/Pacientes/i).closest('button');
+    if (pacientesTab) fireEvent.click(pacientesTab);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Buscar paciente por nome/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Registro de Auditoria/i)).not.toBeInTheDocument();
     });
   });
 
