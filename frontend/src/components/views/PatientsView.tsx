@@ -1,6 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Patient } from '../../types';
 import { formatDate } from '../../utils';
+import { 
+  Eye, 
+  Trash2, 
+  FileJson, 
+  FileText, 
+  MoreHorizontal,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown
+} from 'lucide-react';
+import { exportToJSON, exportToPDF } from '../../services/exportService';
 
 interface PatientsViewProps {
   searchTerm: string;
@@ -12,19 +23,59 @@ interface PatientsViewProps {
   loading: boolean;
   paginatedPatients: Patient[];
   toggleSort: (field: 'name' | 'last_eval') => void;
-  renderSortIcon: (field: 'name' | 'last_eval') => React.ReactNode;
+  renderSortIcon: (field: 'name' | 'last_eval') => string;
   onViewDetail: (id: number) => void;
   onDeletePatient: (patient: Patient) => void;
   currentPage: number;
   totalPages: number;
   setCurrentPage: (page: number | ((prev: number) => number)) => void;
+  fetchWithAuth: (url: string, options?: RequestInit) => Promise<Response>;
 }
 
 const PatientsView: React.FC<PatientsViewProps> = ({
   searchTerm, setSearchTerm, onSearch, onNewPatient, onImportJson,
   error, loading, paginatedPatients, toggleSort, renderSortIcon,
-  onViewDetail, onDeletePatient, currentPage, totalPages, setCurrentPage
+  onViewDetail, onDeletePatient, currentPage, totalPages, setCurrentPage,
+  fetchWithAuth
 }) => {
+  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fechar dropdown ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpenDropdownId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleExport = async (patient: Patient, type: 'pdf' | 'json') => {
+    setOpenDropdownId(null);
+    try {
+      // Para exportar, precisamos do histórico completo
+      const response = await fetchWithAuth(`http://localhost:8080/api/patients/${patient.id}`);
+      if (response.ok) {
+        const fullPatient = await response.json();
+        if (type === 'pdf') exportToPDF(fullPatient);
+        else exportToJSON(fullPatient);
+      } else {
+        alert('Erro ao carregar dados para exportação');
+      }
+    } catch (err) {
+      alert('Erro na exportação');
+    }
+  };
+
+  const getSortIcon = (field: 'name' | 'last_eval') => {
+    const icon = renderSortIcon(field);
+    if (icon === '↑') return <ChevronUp size={16} />;
+    if (icon === '↓') return <ChevronDown size={16} />;
+    return <ChevronsUpDown size={16} opacity={0.3} />;
+  };
+
   return (
     <div className="card">
       <form className="search-bar" onSubmit={onSearch}>
@@ -69,21 +120,30 @@ const PatientsView: React.FC<PatientsViewProps> = ({
                 style={{ padding: '1rem', cursor: 'pointer' }}
                 onClick={() => toggleSort('name')}
               >
-                Nome <span className={`sort-icon ${renderSortIcon('name') !== '↕' ? 'active' : ''}`}>{renderSortIcon('name')}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  Nome {getSortIcon('name')}
+                </div>
               </th>
               <th 
                 style={{ padding: '1rem', cursor: 'pointer' }}
                 onClick={() => toggleSort('last_eval')}
               >
-                Última Entrada <span className={`sort-icon ${renderSortIcon('last_eval') !== '↕' ? 'active' : ''}`}>{renderSortIcon('last_eval')}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  Última Entrada {getSortIcon('last_eval')}
+                </div>
               </th>
               <th style={{ padding: '1rem' }}>Diagnóstico</th>
-              <th style={{ padding: '1rem' }}>Ações</th>
+              <th style={{ padding: '1rem', textAlign: 'right' }}>Ações</th>
             </tr>
           </thead>
           <tbody>
             {paginatedPatients.map(p => (
-              <tr key={p.id} style={{ borderBottom: '1px solid var(--unimed-border)' }}>
+              <tr 
+                key={p.id} 
+                className="patient-row"
+                style={{ borderBottom: '1px solid var(--unimed-border)' }}
+                onDoubleClick={() => p.id && onViewDetail(p.id)}
+              >
                 <td style={{ padding: '1rem' }}>{p.name}</td>
                 <td style={{ padding: '1rem' }}>{p.evaluations?.[0] ? formatDate(p.evaluations[0].evaluation_date) : 'Sem avaliação'}</td>
                 <td style={{ padding: '1rem' }}>
@@ -93,19 +153,42 @@ const PatientsView: React.FC<PatientsViewProps> = ({
                         : p.evaluations[0].medical_diagnosis)
                     : 'Não informado'}
                 </td>
-                <td style={{ padding: '1rem', display: 'flex', gap: '10px' }}>
-                  <button 
-                    onClick={() => p.id && onViewDetail(p.id)}
-                    style={{ color: 'var(--unimed-green)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
-                    Ver Prontuário
-                  </button>
-                  <button 
-                    onClick={() => onDeletePatient(p)}
-                    style={{ color: '#d9534f', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
-                    Excluir
-                  </button>
+                <td style={{ padding: '1rem' }}>
+                  <div className="actions-cell">
+                    <button 
+                      className="btn-icon" 
+                      onClick={() => p.id && onViewDetail(p.id)}
+                      title="Ver Prontuário"
+                    >
+                      <Eye size={18} />
+                    </button>
+                    
+                    <div className={`dropdown ${openDropdownId === p.id ? 'open' : ''}`} ref={openDropdownId === p.id ? dropdownRef : null}>
+                      <button 
+                        className="btn-icon" 
+                        onClick={() => setOpenDropdownId(openDropdownId === p.id ? null : (p.id || null))}
+                        title="Mais ações"
+                      >
+                        <MoreHorizontal size={18} />
+                      </button>
+                      
+                      <div className="dropdown-menu">
+                        <button className="dropdown-item" onClick={() => p.id && onViewDetail(p.id)}>
+                          <Eye size={16} /> Abrir Prontuário
+                        </button>
+                        <button className="dropdown-item" onClick={() => handleExport(p, 'pdf')}>
+                          <FileText size={16} /> Exportar PDF
+                        </button>
+                        <button className="dropdown-item" onClick={() => handleExport(p, 'json')}>
+                          <FileJson size={16} /> Exportar JSON
+                        </button>
+                        <div className="dropdown-divider"></div>
+                        <button className="dropdown-item danger" onClick={() => { setOpenDropdownId(null); onDeletePatient(p); }}>
+                          <Trash2 size={16} /> Excluir Paciente
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -133,6 +133,7 @@ function App() {
             currentPage={currentPage}
             totalPages={totalPages}
             setCurrentPage={setCurrentPage}
+            fetchWithAuth={fetchWithAuth}
           />
         )}
         {activeTab === 'agenda' && <div className="card"><h2>Agenda</h2><p>Em breve: Gestão de consultas e notificações.</p></div>}

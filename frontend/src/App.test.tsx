@@ -388,4 +388,54 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
       expect(screen.getByTestId('sync-status')).toHaveTextContent('pendente');
     });
   });
+
+  test('deve exibir dropdown de ações ao clicar nas reticências', async () => {
+    mockStatusCall(true);
+    (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ token: 'tk' }) });
+    
+    const mockPatients = [{ id: 1, name: 'Paciente Teste Dropdown', evaluations: [] }];
+    (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, status: 200, json: async () => mockPatients });
+
+    render(<App />);
+    
+    // Login
+    fireEvent.change(await screen.findByLabelText(/Senha de Acesso/i), { target: { value: 'pass' } });
+    fireEvent.click(screen.getByRole('button', { name: /Entrar/i }));
+
+    // Localiza o botão de mais ações (reticências)
+    const moreActionsButton = await screen.findByTitle(/Mais ações/i);
+    fireEvent.click(moreActionsButton);
+
+    // Verifica se as opções do dropdown apareceram
+    expect(screen.getByText(/Abrir Prontuário/i)).toBeInTheDocument();
+    expect(screen.getByText(/Exportar PDF/i)).toBeInTheDocument();
+    expect(screen.getByText(/Exportar JSON/i)).toBeInTheDocument();
+    expect(screen.getByText(/Excluir Paciente/i)).toBeInTheDocument();
+  });
+
+  test('deve abrir o prontuário ao dar duplo clique na linha do paciente', async () => {
+    mockStatusCall(true);
+    (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ token: 'tk' }) });
+    
+    const mockPatients = [{ id: 1, name: 'Paciente Duplo Clique', evaluations: [] }];
+    (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, status: 200, json: async () => mockPatients });
+
+    // Mock para abrir o detalhe
+    (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, status: 200, json: async () => mockPatients[0] });
+
+    render(<App />);
+    
+    // Login
+    fireEvent.change(await screen.findByLabelText(/Senha de Acesso/i), { target: { value: 'pass' } });
+    fireEvent.click(screen.getByRole('button', { name: /Entrar/i }));
+
+    // Localiza a linha do paciente e dá duplo clique
+    const row = await screen.findByText('Paciente Duplo Clique');
+    fireEvent.doubleClick(row);
+
+    // Verifica se o modal de detalhe abriu (Prontuário do Paciente)
+    await waitFor(() => {
+      expect(screen.getByText(/Prontuário do Paciente/i)).toBeInTheDocument();
+    });
+  });
 });

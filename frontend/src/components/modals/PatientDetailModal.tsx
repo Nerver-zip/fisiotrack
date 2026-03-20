@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Patient, Evaluation } from '../../types';
 import { formatDate, calculateAge } from '../../utils';
-import { FileJson, FileText } from 'lucide-react';
-import { exportToJSON, exportToPDF } from '../../services/exportService';
+import { Pencil, Trash2, PlusCircle } from 'lucide-react';
 import './Modal.css';
 
 interface PatientDetailModalProps {
@@ -43,12 +42,13 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
         <div className="modal-body-scroll">
           <section className="detail-section">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ borderLeft: '4px solid var(--unimed-green)', paddingLeft: '10px' }}>📍 Dados Cadastrais</h3>
+              <h3 style={{ borderLeft: '4px solid var(--unimed-green)', paddingLeft: '10px', margin: 0 }}>📍 Dados Cadastrais</h3>
               <button 
-                className="btn-edit" 
+                className="btn-icon" 
                 onClick={() => onEditPatient(patient)}
+                title="Editar Dados Cadastrais"
               >
-                ✏️ Editar Dados
+                <Pencil size={20} />
               </button>
             </div>
             <div className="detail-grid">
@@ -66,13 +66,13 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
 
           <section className="detail-section">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ borderLeft: '4px solid var(--unimed-green)', paddingLeft: '10px' }}>📅 Histórico de Entradas</h3>
+              <h3 style={{ borderLeft: '4px solid var(--unimed-green)', paddingLeft: '10px', margin: 0 }}>📅 Histórico de Entradas</h3>
               <button 
-                className="btn-primary" 
-                style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+                className="btn-icon" 
                 onClick={() => patient.id && onAddEvaluation(patient.id)}
+                title="Nova Entrada Clínica"
               >
-                + Nova Entrada
+                <PlusCircle size={24} />
               </button>
             </div>
             
@@ -97,20 +97,21 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
             <div className="evaluation-content">
               <section className="detail-section">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <h3 style={{ borderLeft: '4px solid var(--unimed-green)', paddingLeft: '10px' }}>🏥 Informações da Entrada ({formatDate(currentEval.evaluation_date)})</h3>
+                  <h3 style={{ borderLeft: '4px solid var(--unimed-green)', paddingLeft: '10px', margin: 0 }}>🏥 Informações da Entrada ({formatDate(currentEval.evaluation_date)})</h3>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button 
-                      className="btn-edit" 
+                      className="btn-icon" 
                       onClick={() => onEditEvaluation(currentEval)}
+                      title="Editar Entrada"
                     >
-                      ✏️ Editar
+                      <Pencil size={20} />
                     </button>
                     <button 
-                      className="btn-confirm-danger" 
-                      style={{ minWidth: '80px', fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+                      className="btn-icon danger" 
                       onClick={() => onDeleteEvaluation(currentEval)}
+                      title="Excluir Entrada"
                     >
-                      🗑️ Excluir
+                      <Trash2 size={20} />
                     </button>
                   </div>
                 </div>
@@ -147,15 +148,7 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
           )}
         </div>
 
-        <div className="modal-actions footer-actions" style={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: '1rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn-edit" onClick={() => exportToJSON(patient)} title="Exportar para JSON" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <FileJson size={18} /> JSON
-            </button>
-            <button className="btn-edit" onClick={() => exportToPDF(patient)} title="Exportar para PDF" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <FileText size={18} /> PDF
-            </button>
-          </div>
+        <div className="modal-actions footer-actions">
           <button className="btn-primary" onClick={onClose}>Fechar</button>
         </div>
       </div>

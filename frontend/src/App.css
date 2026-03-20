@@ -192,6 +192,109 @@ body {
   color: #666;
 }
 
+/* Ações na Tabela com Hover */
+tr.patient-row {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+tr.patient-row:hover {
+  background-color: #f9f9f9;
+}
+
+.actions-cell {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+tr:hover .actions-cell {
+  opacity: 1;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: var(--unimed-green);
+}
+
+.btn-icon.danger:hover {
+  background-color: #fdeaea;
+  color: #d9534f;
+}
+
+/* Dropdown Menu */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  background-color: white;
+  min-width: 180px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+  border-radius: 8px;
+  z-index: 100;
+  padding: 0.5rem 0;
+  border: 1px solid var(--unimed-border);
+  display: none;
+}
+
+.dropdown.open .dropdown-menu {
+  display: block;
+}
+
+.dropdown-item {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: none;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--unimed-text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+.dropdown-item:hover {
+  background-color: var(--unimed-bg);
+  color: var(--unimed-green);
+}
+
+.dropdown-item.danger {
+  color: #d9534f;
+}
+
+.dropdown-item.danger:hover {
+  background-color: #fdeaea;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: var(--unimed-border);
+  margin: 0.5rem 0;
+}
+
 /* Animação para ícone de sincronização */
 @keyframes spin {
   100% {
