@@ -180,6 +180,10 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
       expect(localStorage.getItem('fisio_token')).toBeNull();
       expect(screen.getByText(/Senha de Acesso/i)).toBeInTheDocument();
     });
+
+    // Verifica se o input de senha foi limpo
+    const passwordInput = screen.getByLabelText(/Senha de Acesso/i);
+    expect(passwordInput).toHaveValue('');
   });
 
   test('deve navegar entre as abas corretamente', async () => {

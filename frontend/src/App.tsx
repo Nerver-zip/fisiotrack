@@ -153,6 +153,8 @@ function App() {
   const handleLogout = () => {
     fetchWithAuth('http://localhost:8080/api/logout', { method: 'POST' }).catch(() => {});
     setToken(null);
+    setLoginPassword('');
+    setConfirmPassword('');
     localStorage.removeItem('fisio_token');
     setPatients([]);
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
