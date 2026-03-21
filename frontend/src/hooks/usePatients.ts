@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Patient, Evaluation } from '../types';
+import { Patient } from '../types';
 
 interface UsePatientsProps {
   token: string | null;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<Response>;
 }
+
+export type SortField = 'name' | 'last_eval' | 'updated_at' | 'is_favorite';
 
 export function usePatients({ token, fetchWithAuth }: UsePatientsProps) {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -15,7 +17,7 @@ export function usePatients({ token, fetchWithAuth }: UsePatientsProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const [sortField, setSortField] = useState<'name' | 'last_eval'>('name');
+  const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const fetchPatients = useCallback(async (query: string = '') => {
@@ -44,6 +46,14 @@ export function usePatients({ token, fetchWithAuth }: UsePatientsProps) {
 
   const sortedPatients = useMemo(() => {
     return [...patients].sort((a, b) => {
+      if (sortField === 'is_favorite') {
+        const order = sortDirection === 'asc' ? 1 : -1;
+        if (a.is_favorite !== b.is_favorite) {
+          return a.is_favorite ? -1 * order : 1 * order;
+        }
+        return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()) * order;
+      }
+
       let valA: string = '';
       let valB: string = '';
 
@@ -53,6 +63,9 @@ export function usePatients({ token, fetchWithAuth }: UsePatientsProps) {
       } else if (sortField === 'last_eval') {
         valA = a.evaluations?.[0]?.evaluation_date || '0000-00-00';
         valB = b.evaluations?.[0]?.evaluation_date || '0000-00-00';
+      } else if (sortField === 'updated_at') {
+        valA = a.updated_at || '0000-00-00 00:00:00';
+        valB = b.updated_at || '0000-00-00 00:00:00';
       }
 
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
@@ -68,19 +81,42 @@ export function usePatients({ token, fetchWithAuth }: UsePatientsProps) {
     return sortedPatients.slice(startIndex, startIndex + itemsPerPage);
   }, [sortedPatients, currentPage]);
 
-  const toggleSort = (field: 'name' | 'last_eval') => {
+  const toggleSort = (field: SortField) => {
     setCurrentPage(1);
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
-      setSortDirection('asc');
+      setSortDirection(field === 'name' ? 'asc' : 'desc');
     }
   };
 
-  const renderSortIcon = (field: 'name' | 'last_eval') => {
+  const setSort = (field: SortField, direction: 'asc' | 'desc') => {
+    setCurrentPage(1);
+    setSortField(field);
+    setSortDirection(direction);
+  };
+
+  const renderSortIcon = (field: SortField) => {
     if (sortField !== field) return '↕';
     return sortDirection === 'asc' ? '↑' : '↓';
+  };
+
+  const toggleFavorite = async (patient: Patient) => {
+    if (!patient.id) return;
+    try {
+      const updatedPatient = { ...patient, is_favorite: !patient.is_favorite };
+      const response = await fetchWithAuth(`http://localhost:8080/api/patients/${patient.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPatient)
+      });
+      if (response.ok) {
+        setPatients(prev => prev.map(p => p.id === patient.id ? { ...p, is_favorite: !p.is_favorite, updated_at: new Date().toISOString() } : p));
+      }
+    } catch (err) {
+      console.error('Erro ao favoritar:', err);
+    }
   };
 
   return {
@@ -97,7 +133,9 @@ export function usePatients({ token, fetchWithAuth }: UsePatientsProps) {
     sortField,
     sortDirection,
     toggleSort,
+    setSort,
     renderSortIcon,
-    fetchPatients
+    fetchPatients,
+    toggleFavorite
   };
 }

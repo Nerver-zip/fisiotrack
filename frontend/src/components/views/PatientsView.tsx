@@ -9,9 +9,14 @@ import {
   MoreHorizontal,
   ChevronUp,
   ChevronDown,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Star,
+  ListFilter,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { exportToJSON, exportToPDF } from '../../services/exportService';
+import { SortField } from '../../hooks/usePatients';
 
 interface PatientsViewProps {
   searchTerm: string;
@@ -22,10 +27,14 @@ interface PatientsViewProps {
   error: string | null;
   loading: boolean;
   paginatedPatients: Patient[];
-  toggleSort: (field: 'name' | 'last_eval') => void;
-  renderSortIcon: (field: 'name' | 'last_eval') => string;
+  toggleSort: (field: SortField) => void;
+  setSort: (field: SortField, direction: 'asc' | 'desc') => void;
+  sortField: SortField;
+  sortDirection: 'asc' | 'desc';
+  renderSortIcon: (field: SortField) => React.ReactNode;
   onViewDetail: (id: number) => void;
   onDeletePatient: (patient: Patient) => void;
+  onToggleFavorite: (patient: Patient) => void;
   currentPage: number;
   totalPages: number;
   setCurrentPage: (page: number | ((prev: number) => number)) => void;
@@ -34,18 +43,23 @@ interface PatientsViewProps {
 
 const PatientsView: React.FC<PatientsViewProps> = ({
   searchTerm, setSearchTerm, onSearch, onNewPatient, onImportJson,
-  error, loading, paginatedPatients, toggleSort, renderSortIcon,
-  onViewDetail, onDeletePatient, currentPage, totalPages, setCurrentPage,
+  error, loading, paginatedPatients, toggleSort, setSort, sortField, sortDirection, renderSortIcon,
+  onViewDetail, onDeletePatient, onToggleFavorite, currentPage, totalPages, setCurrentPage,
   fetchWithAuth
 }) => {
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fechar dropdown ao clicar fora
+  // Fechar dropdowns ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setOpenDropdownId(null);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setIsSortDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -55,7 +69,6 @@ const PatientsView: React.FC<PatientsViewProps> = ({
   const handleExport = async (patient: Patient, type: 'pdf' | 'json') => {
     setOpenDropdownId(null);
     try {
-      // Para exportar, precisamos do histórico completo
       const response = await fetchWithAuth(`http://localhost:8080/api/patients/${patient.id}`);
       if (response.ok) {
         const fullPatient = await response.json();
@@ -69,12 +82,46 @@ const PatientsView: React.FC<PatientsViewProps> = ({
     }
   };
 
-  const getSortIcon = (field: 'name' | 'last_eval') => {
-    const icon = renderSortIcon(field);
-    if (icon === '↑') return <ChevronUp size={16} />;
-    if (icon === '↓') return <ChevronDown size={16} />;
-    return <ChevronsUpDown size={16} opacity={0.3} />;
+  const formatDateTime = (dateStr?: string) => {
+    if (!dateStr) return 'Não disponível';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      return date.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return dateStr;
+    }
   };
+
+  const SortOption = ({ field, label }: { field: SortField, label: string }) => (
+    <div className="sort-dropdown-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 1rem', gap: '1rem' }}>
+      <span style={{ fontSize: '0.9rem', fontWeight: sortField === field ? '600' : 'normal', color: sortField === field ? 'var(--unimed-green)' : 'inherit' }}>
+        {label}
+      </span>
+      <div style={{ display: 'flex', gap: '0.2rem' }}>
+        <button 
+          className={`btn-icon-small ${sortField === field && sortDirection === 'asc' ? 'active' : ''}`}
+          onClick={(e) => { e.stopPropagation(); setSort(field, 'asc'); setIsSortDropdownOpen(false); }}
+          title="Ordem Ascendente"
+        >
+          <ArrowUp size={14} />
+        </button>
+        <button 
+          className={`btn-icon-small ${sortField === field && sortDirection === 'desc' ? 'active' : ''}`}
+          onClick={(e) => { e.stopPropagation(); setSort(field, 'desc'); setIsSortDropdownOpen(false); }}
+          title="Ordem Descendente"
+        >
+          <ArrowDown size={14} />
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="card">
@@ -121,7 +168,7 @@ const PatientsView: React.FC<PatientsViewProps> = ({
                 onClick={() => toggleSort('name')}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  Nome {getSortIcon('name')}
+                  Nome {renderSortIcon('name')}
                 </div>
               </th>
               <th 
@@ -129,22 +176,56 @@ const PatientsView: React.FC<PatientsViewProps> = ({
                 onClick={() => toggleSort('last_eval')}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  Última Entrada {getSortIcon('last_eval')}
+                  Última Entrada {renderSortIcon('last_eval')}
                 </div>
               </th>
               <th style={{ padding: '1rem' }}>Diagnóstico</th>
-              <th style={{ padding: '1rem', textAlign: 'right' }}>Ações</th>
+              <th 
+                style={{ padding: '1rem', cursor: 'pointer' }}
+                onClick={() => toggleSort('updated_at')}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  Última Modificação {renderSortIcon('updated_at')}
+                </div>
+              </th>
+              <th 
+                style={{ padding: '1rem', textAlign: 'right', position: 'relative' }}
+              >
+                <div 
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end', cursor: 'pointer' }}
+                  onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
+                >
+                  <ListFilter size={18} /> Classificação
+                </div>
+
+                {isSortDropdownOpen && (
+                  <div className="dropdown-menu sort-dropdown" ref={sortDropdownRef} style={{ display: 'block', top: '100%', right: 0, textAlign: 'left' }}>
+                    <div style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--unimed-border)', fontWeight: 'bold', fontSize: '0.8rem', color: '#666' }}>
+                      ORDENAR POR
+                    </div>
+                    <SortOption field="name" label="Nome" />
+                    <SortOption field="is_favorite" label="Favoritos" />
+                    <SortOption field="last_eval" label="Última Entrada" />
+                    <SortOption field="updated_at" label="Última Modificação" />
+                  </div>
+                )}
+              </th>
             </tr>
           </thead>
           <tbody>
             {paginatedPatients.map(p => (
               <tr 
                 key={p.id} 
-                className="patient-row"
+                className={`patient-row ${p.is_favorite ? 'favorite' : ''}`}
                 style={{ borderBottom: '1px solid var(--unimed-border)' }}
                 onDoubleClick={() => p.id && onViewDetail(p.id)}
               >
-                <td style={{ padding: '1rem' }}>{p.name}</td>
+                <td style={{ padding: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {p.name}
+                    {p.is_favorite && <Star size={14} fill="var(--unimed-orange)" color="var(--unimed-orange)" />}
+                  </div>
+                </td>
                 <td style={{ padding: '1rem' }}>{p.evaluations?.[0] ? formatDate(p.evaluations[0].evaluation_date) : 'Sem avaliação'}</td>
                 <td style={{ padding: '1rem' }}>
                   {p.evaluations?.[0]?.medical_diagnosis 
@@ -153,17 +234,28 @@ const PatientsView: React.FC<PatientsViewProps> = ({
                         : p.evaluations[0].medical_diagnosis)
                     : 'Não informado'}
                 </td>
+                <td style={{ padding: '1rem', fontSize: '0.85rem', color: '#666' }}>
+                  {formatDateTime(p.updated_at)}
+                </td>
                 <td style={{ padding: '1rem' }}>
                   <div className="actions-cell">
                     <button 
                       className="btn-icon" 
-                      onClick={() => p.id && onViewDetail(p.id)}
+                      onClick={(e) => { e.stopPropagation(); p.id && onViewDetail(p.id); }}
                       title="Ver Prontuário"
                     >
                       <Eye size={18} />
                     </button>
+
+                    <button 
+                      className={`btn-icon favorite-toggle ${p.is_favorite ? 'active' : ''}`}
+                      onClick={(e) => { e.stopPropagation(); onToggleFavorite(p); }}
+                      title={p.is_favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                    >
+                      <Star size={18} fill={p.is_favorite ? "var(--unimed-orange)" : "none"} color={p.is_favorite ? "var(--unimed-orange)" : "currentColor"} />
+                    </button>
                     
-                    <div className={`dropdown ${openDropdownId === p.id ? 'open' : ''}`} ref={openDropdownId === p.id ? dropdownRef : null}>
+                    <div className={`dropdown ${openDropdownId === p.id ? 'open' : ''}`} ref={openDropdownId === p.id ? dropdownRef : null} onClick={(e) => e.stopPropagation()}>
                       <button 
                         className="btn-icon" 
                         onClick={() => setOpenDropdownId(openDropdownId === p.id ? null : (p.id || null))}

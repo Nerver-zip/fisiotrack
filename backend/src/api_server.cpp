@@ -222,6 +222,7 @@ void ApiServer::setup_routes() {
             if (patch.contains("gender")) p.gender = patch["gender"];
             if (patch.contains("address")) p.address = patch["address"];
             if (patch.contains("profession")) p.profession = patch["profession"];
+            if (patch.contains("is_favorite")) p.is_favorite = patch["is_favorite"].get<bool>();
             if (patch.contains("phone")) p.phone = patch["phone"].get<std::vector<std::string>>();
 
             if (m_repo->update_patient(p, get_user_log_info(req))) {

@@ -54,6 +54,8 @@ struct Patient {
     std::string address;
     std::string profession;
     std::vector<std::string> phone;
+    bool is_favorite = false;
+    std::string updated_at;
     
     // Histórico de avaliações
     std::vector<Evaluation> evaluations;
@@ -68,7 +70,9 @@ struct Patient {
                gender == other.gender &&
                address == other.address &&
                profession == other.profession &&
-               phone == other.phone;
+               phone == other.phone &&
+               is_favorite == other.is_favorite &&
+               updated_at == other.updated_at;
     }
 };
 
@@ -117,6 +121,8 @@ inline void to_json(nlohmann::json& j, const Patient& p) {
         {"address", p.address},
         {"profession", p.profession},
         {"phone", p.phone},
+        {"is_favorite", p.is_favorite},
+        {"updated_at", p.updated_at},
         {"evaluations", p.evaluations}
     };
     if (p.id) j["id"] = *p.id;
@@ -133,6 +139,8 @@ inline void from_json(const nlohmann::json& j, Patient& p) {
     p.address = j.value("address", "");
     p.profession = j.value("profession", "");
     p.phone = j.value("phone", std::vector<std::string>{});
+    p.is_favorite = j.value("is_favorite", false);
+    p.updated_at = j.value("updated_at", "");
     p.evaluations = j.value("evaluations", std::vector<Evaluation>{});
 }
 

@@ -25,7 +25,6 @@ bool SqliteDatabase::open(const std::string& db_path, const std::string& key) {
     sqlite3_exec(m_db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
 
     // TESTE DE CHAVE: Tentar ler algo do banco para ver se a senha bate.
-    // No SQLCipher, sqlite3_key é lazy. O erro só acontece na primeira operação de I/O.
     char* err_msg = nullptr;
     const char* test_sql = "SELECT count(*) FROM sqlite_master;";
     if (sqlite3_exec(m_db, test_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
@@ -43,7 +42,9 @@ bool SqliteDatabase::open(const std::string& db_path, const std::string& key) {
                                "cpf TEXT,"
                                "gender TEXT,"
                                "address TEXT,"
-                               "profession TEXT);";
+                               "profession TEXT,"
+                               "is_favorite INTEGER DEFAULT 0,"
+                               "updated_at TEXT DEFAULT (datetime('now')));";
 
     const char* sql_phones = "CREATE TABLE IF NOT EXISTS patient_phones ("
                              "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -95,8 +96,8 @@ void SqliteDatabase::close() {
 bool SqliteDatabase::add_patient(const Patient& p) {
     sqlite3_exec(m_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
 
-    const char* sql = "INSERT INTO patients (healthcare_id, name, mom_name, birth_date, cpf, gender, address, profession) "
-                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+    const char* sql = "INSERT INTO patients (healthcare_id, name, mom_name, birth_date, cpf, gender, address, profession, is_favorite, updated_at) "
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'));";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
@@ -111,6 +112,7 @@ bool SqliteDatabase::add_patient(const Patient& p) {
     sqlite3_bind_text(stmt, 6, p.gender.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 7, p.address.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 8, p.profession.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 9, p.is_favorite ? 1 : 0);
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         sqlite3_finalize(stmt);
@@ -179,7 +181,10 @@ std::optional<Patient> SqliteDatabase::get_patient(int id) {
         Patient p = {
             sqlite3_column_int(stmt, 0), get_text(1), get_text(2), get_text(3),
             get_text(4), get_text(5), get_text(6), get_text(7), get_text(8),
-            phones, get_patient_evaluations(sqlite3_column_int(stmt, 0))
+            phones, 
+            sqlite3_column_int(stmt, 9) != 0, // is_favorite
+            get_text(10), // updated_at
+            get_patient_evaluations(sqlite3_column_int(stmt, 0))
         };
         sqlite3_finalize(stmt);
         return p;
@@ -217,12 +222,14 @@ std::vector<Patient> SqliteDatabase::get_all_patients() {
         p.gender = get_text(6);
         p.address = get_text(7);
         p.profession = get_text(8);
+        p.is_favorite = sqlite3_column_int(stmt, 9) != 0;
+        p.updated_at = get_text(10);
 
-        std::string last_date = get_text(9);
+        std::string last_date = get_text(11);
         if (!last_date.empty()) {
             Evaluation last_eval;
             last_eval.evaluation_date = last_date;
-            last_eval.medical_diagnosis = get_text(10);
+            last_eval.medical_diagnosis = get_text(12);
             p.evaluations.push_back(last_eval);
         }
         patients.push_back(p);
@@ -264,12 +271,14 @@ std::vector<Patient> SqliteDatabase::search_patients(const std::string& query) {
         p.gender = get_text(6);
         p.address = get_text(7);
         p.profession = get_text(8);
+        p.is_favorite = sqlite3_column_int(stmt, 9) != 0;
+        p.updated_at = get_text(10);
 
-        std::string last_date = get_text(9);
+        std::string last_date = get_text(11);
         if (!last_date.empty()) {
             Evaluation last_eval;
             last_eval.evaluation_date = last_date;
-            last_eval.medical_diagnosis = get_text(10);
+            last_eval.medical_diagnosis = get_text(12);
             p.evaluations.push_back(last_eval);
         }
         patients.push_back(p);
@@ -282,7 +291,7 @@ bool SqliteDatabase::update_patient(const Patient& p) {
     if (!p.id) return false;
     sqlite3_exec(m_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
 
-    const char* sql = "UPDATE patients SET healthcare_id=?, name=?, mom_name=?, birth_date=?, cpf=?, gender=?, address=?, profession=? WHERE id=?;";
+    const char* sql = "UPDATE patients SET healthcare_id=?, name=?, mom_name=?, birth_date=?, cpf=?, gender=?, address=?, profession=?, is_favorite=?, updated_at=datetime('now') WHERE id=?;";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
@@ -297,7 +306,8 @@ bool SqliteDatabase::update_patient(const Patient& p) {
     sqlite3_bind_text(stmt, 6, p.gender.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 7, p.address.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 8, p.profession.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 9, *p.id);
+    sqlite3_bind_int(stmt, 9, p.is_favorite ? 1 : 0);
+    sqlite3_bind_int(stmt, 10, *p.id);
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         sqlite3_finalize(stmt);
@@ -340,11 +350,16 @@ bool SqliteDatabase::delete_patient(int id) {
 }
 
 bool SqliteDatabase::add_evaluation(const Evaluation& e) {
+    sqlite3_exec(m_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+
     const char* sql = "INSERT INTO evaluations (patient_id, evaluation_date, doctor, medical_diagnosis, chief_complaint, "
                       "history_present_illness, past_medical_history, medications, habits_activities, physical_exam, treatment_plan) "
                       "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
     sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
+        return false;
+    }
 
     sqlite3_bind_int(stmt, 1, e.patient_id);
     sqlite3_bind_text(stmt, 2, e.evaluation_date.c_str(), -1, SQLITE_TRANSIENT);
@@ -358,9 +373,24 @@ bool SqliteDatabase::add_evaluation(const Evaluation& e) {
     sqlite3_bind_text(stmt, 10, e.physical_exam.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 11, e.treatment_plan.c_str(), -1, SQLITE_TRANSIENT);
 
-    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
+        return false;
+    }
     sqlite3_finalize(stmt);
-    return success;
+
+    // Update patient updated_at
+    const char* sql_upd_patient = "UPDATE patients SET updated_at=datetime('now') WHERE id=?;";
+    sqlite3_stmt* u_stmt;
+    if (sqlite3_prepare_v2(m_db, sql_upd_patient, -1, &u_stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(u_stmt, 1, e.patient_id);
+        sqlite3_step(u_stmt);
+        sqlite3_finalize(u_stmt);
+    }
+
+    sqlite3_exec(m_db, "COMMIT;", nullptr, nullptr, nullptr);
+    return true;
 }
 
 std::vector<Evaluation> SqliteDatabase::get_patient_evaluations(int patient_id) {
@@ -387,11 +417,16 @@ std::vector<Evaluation> SqliteDatabase::get_patient_evaluations(int patient_id) 
 
 bool SqliteDatabase::update_evaluation(const Evaluation& e) {
     if (!e.id) return false;
+    sqlite3_exec(m_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+
     const char* sql = "UPDATE evaluations SET evaluation_date=?, doctor=?, medical_diagnosis=?, chief_complaint=?, "
                       "history_present_illness=?, past_medical_history=?, medications=?, habits_activities=?, physical_exam=?, treatment_plan=? "
                       "WHERE id=?;";
     sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
+        return false;
+    }
 
     sqlite3_bind_text(stmt, 1, e.evaluation_date.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 2, e.doctor.c_str(), -1, SQLITE_TRANSIENT);
@@ -405,18 +440,62 @@ bool SqliteDatabase::update_evaluation(const Evaluation& e) {
     sqlite3_bind_text(stmt, 10, e.treatment_plan.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt, 11, *e.id);
 
-    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
+        return false;
+    }
     sqlite3_finalize(stmt);
-    return success;
+
+    // Update patient updated_at
+    const char* sql_upd_patient = "UPDATE patients SET updated_at=datetime('now') WHERE id=?;";
+    sqlite3_stmt* u_stmt;
+    if (sqlite3_prepare_v2(m_db, sql_upd_patient, -1, &u_stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(u_stmt, 1, e.patient_id);
+        sqlite3_step(u_stmt);
+        sqlite3_finalize(u_stmt);
+    }
+
+    sqlite3_exec(m_db, "COMMIT;", nullptr, nullptr, nullptr);
+    return true;
 }
 
 bool SqliteDatabase::delete_evaluation(int id) {
+    // We need the patient_id to update updated_at
+    int patient_id = -1;
+    const char* sql_get_pid = "SELECT patient_id FROM evaluations WHERE id = ?;";
+    sqlite3_stmt* g_stmt;
+    if (sqlite3_prepare_v2(m_db, sql_get_pid, -1, &g_stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(g_stmt, 1, id);
+        if (sqlite3_step(g_stmt) == SQLITE_ROW) {
+            patient_id = sqlite3_column_int(g_stmt, 0);
+        }
+        sqlite3_finalize(g_stmt);
+    }
+
+    sqlite3_exec(m_db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+
     const char* sql = "DELETE FROM evaluations WHERE id = ?;";
     sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
+        return false;
+    }
     sqlite3_bind_int(stmt, 1, id);
     bool success = (sqlite3_step(stmt) == SQLITE_DONE);
     sqlite3_finalize(stmt);
+
+    if (success && patient_id != -1) {
+        const char* sql_upd_patient = "UPDATE patients SET updated_at=datetime('now') WHERE id=?;";
+        sqlite3_stmt* u_stmt;
+        if (sqlite3_prepare_v2(m_db, sql_upd_patient, -1, &u_stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_int(u_stmt, 1, patient_id);
+            sqlite3_step(u_stmt);
+            sqlite3_finalize(u_stmt);
+        }
+    }
+
+    sqlite3_exec(m_db, "COMMIT;", nullptr, nullptr, nullptr);
     return success;
 }
 
@@ -471,7 +550,6 @@ bool SqliteDatabase::create_backup(const std::string& target_path) {
     }
 
     // VACUUM INTO cria uma cópia consistente e compactada do banco atual
-    // O banco destino herda a mesma criptografia (chave) do banco origem no SQLCipher.
     std::string sql = "VACUUM INTO '" + target_path + "';";
     char* err_msg = nullptr;
     if (sqlite3_exec(m_db, sql.c_str(), nullptr, nullptr, &err_msg) != SQLITE_OK) {

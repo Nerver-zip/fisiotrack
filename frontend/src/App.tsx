@@ -26,8 +26,8 @@ function App() {
   const {
     loading, error, searchTerm, setSearchTerm,
     currentPage, setCurrentPage, totalPages,
-    paginatedPatients, toggleSort, renderSortIcon,
-    fetchPatients
+    paginatedPatients, toggleSort, setSort, sortField, sortDirection, renderSortIcon,
+    fetchPatients, toggleFavorite
   } = usePatients({ token, fetchWithAuth });
 
   const { modals, data, actions } = useModals({ 
@@ -127,9 +127,13 @@ function App() {
             loading={loading}
             paginatedPatients={paginatedPatients}
             toggleSort={toggleSort}
+            setSort={setSort}
+            sortField={sortField}
+            sortDirection={sortDirection}
             renderSortIcon={renderSortIcon}
             onViewDetail={actions.fetchPatientWithHistory}
             onDeletePatient={(p) => { data.setSelectedPatient(p); modals.setIsDeleteModalOpen(true); }}
+            onToggleFavorite={toggleFavorite}
             currentPage={currentPage}
             totalPages={totalPages}
             setCurrentPage={setCurrentPage}

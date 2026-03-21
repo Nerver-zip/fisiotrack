@@ -24,5 +24,7 @@ export interface Patient {
   address: string;
   profession: string;
   phone: string[];
+  is_favorite?: boolean;
+  updated_at?: string;
   evaluations?: Evaluation[];
 }

@@ -438,4 +438,30 @@ describe('App - Fluxo de Autenticação (Zero-Knowledge)', () => {
       expect(screen.getByText(/Prontuário do Paciente/i)).toBeInTheDocument();
     });
   });
+
+  test('deve alternar o status de favorito ao clicar na estrela', async () => {
+    mockStatusCall(true);
+    (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ token: 'tk' }) });
+    
+    const mockPatients = [{ id: 1, name: 'Paciente Favorito Teste', is_favorite: false, evaluations: [] }];
+    (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, status: 200, json: async () => mockPatients });
+
+    // Mock para o PUT de toggle favorite
+    (fetch as jest.Mock).mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ status: 'ok' }) });
+
+    render(<App />);
+    
+    // Login
+    fireEvent.change(await screen.findByLabelText(/Senha de Acesso/i), { target: { value: 'pass' } });
+    fireEvent.click(screen.getByRole('button', { name: /Entrar/i }));
+
+    // Clica no botão de favorito
+    const favoriteButton = await screen.findByTitle(/Adicionar aos favoritos/i);
+    fireEvent.click(favoriteButton);
+
+    // Verifica se o título mudou (update otimista no usePatients)
+    await waitFor(() => {
+      expect(screen.getByTitle(/Remover dos favoritos/i)).toBeInTheDocument();
+    });
+  });
 });

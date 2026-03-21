@@ -21,6 +21,7 @@
   --unimed-green: #00995D;
   --unimed-dark-green: #006633;
   --unimed-light-green: #A1D4A1;
+  --unimed-orange: #F29100;
   --unimed-bg: #EDF1F0;
   --unimed-white: #FFFFFF;
   --unimed-text: #333333;
@@ -195,11 +196,19 @@ body {
 /* Ações na Tabela com Hover */
 tr.patient-row {
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 tr.patient-row:hover {
   background-color: #f9f9f9;
+}
+
+tr.patient-row.favorite {
+  background-color: #fff9f0;
+}
+
+tr.patient-row.favorite:hover {
+  background-color: #fff4e0;
 }
 
 .actions-cell {
@@ -232,9 +241,43 @@ tr:hover .actions-cell {
   color: var(--unimed-green);
 }
 
+.btn-icon.favorite-toggle:hover {
+  color: var(--unimed-orange);
+  background-color: rgba(242, 145, 0, 0.1);
+}
+
+.btn-icon.favorite-toggle.active {
+  color: var(--unimed-orange);
+}
+
 .btn-icon.danger:hover {
   background-color: #fdeaea;
   color: #d9534f;
+}
+
+.btn-icon-small {
+  background: none;
+  border: 1px solid #ddd;
+  color: #999;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-icon-small:hover {
+  border-color: var(--unimed-green);
+  color: var(--unimed-green);
+  background-color: #f0fdf4;
+}
+
+.btn-icon-small.active {
+  background-color: var(--unimed-green);
+  color: white;
+  border-color: var(--unimed-green);
 }
 
 /* Dropdown Menu */
@@ -259,6 +302,18 @@ tr:hover .actions-cell {
 
 .dropdown.open .dropdown-menu {
   display: block;
+}
+
+.sort-dropdown {
+  min-width: 240px;
+}
+
+.sort-dropdown-item {
+  transition: background-color 0.2s;
+}
+
+.sort-dropdown-item:hover {
+  background-color: #f9f9f9;
 }
 
 .dropdown-item {
