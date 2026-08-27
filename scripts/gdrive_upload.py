@@ -1,15 +1,16 @@
 import sys
 import os
-import pickle
+import argparse
 import socket
 import time
 import httplib2
-from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.errors import HttpError
+import json
 
 # Configurações
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
@@ -18,62 +19,37 @@ MAX_RETRIES = int(os.getenv('GDRIVE_UPLOAD_RETRIES', '3'))
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-CLIENT_SECRETS_FILE = os.path.join(PROJECT_ROOT, 'config', 'client_secrets.json')
-TOKEN_FILE = os.path.join(PROJECT_ROOT, 'config', 'token.pickle')
+DEFAULT_CLIENT_SECRETS = os.path.join(PROJECT_ROOT, 'config', 'client_secrets.json')
 
-def get_gdrive_service():
-    creds = None
-    # O arquivo token.pickle armazena os tokens de acesso e atualização do usuário
-    if os.path.exists(TOKEN_FILE):
-        with open(TOKEN_FILE, 'rb') as token:
-            creds = pickle.load(token)
-    
-    # Se não houver credenciais válidas, pede ao usuário para logar
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            if not os.path.exists(CLIENT_SECRETS_FILE):
-                raise Exception(f"Arquivo não encontrado: {CLIENT_SECRETS_FILE}. Siga as instruções para criar um OAuth Client ID.")
-            
-            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
-            # Usa porta fixa 8088 para facilitar redirecionamento em WSL/VMs
-            print("\n" + "="*60)
-            print("⚠️ ATENÇÃO: O navegador será aberto.")
-            print("Após o login, se a página der erro 'Não foi possível acessar esse site',")
-            print("copie a URL de erro que está no navegador, vá para o terminal e certifique-se")
-            print("que a porta 8088 está liberada, ou acesse http://localhost:8088 manualmente.")
-            print("="*60 + "\n")
-            
-            creds = flow.run_local_server(port=8088)
-        
-        # Salva as credenciais para o próximo uso
-        with open(TOKEN_FILE, 'wb') as token:
-            pickle.dump(creds, token)
+def get_gdrive_service(args):
+    client_id = args.client_id
+    client_secret = args.client_secret
+
+    if (not client_id or not client_secret) and os.path.exists(DEFAULT_CLIENT_SECRETS):
+        with open(DEFAULT_CLIENT_SECRETS, 'r', encoding='utf-8') as secrets_file:
+            data = json.load(secrets_file)
+            installed = data.get('installed', {})
+            client_id = installed.get('client_id')
+            client_secret = installed.get('client_secret')
+
+    if not args.refresh_token or not client_id or not client_secret:
+        raise RuntimeError("Credenciais OAuth da instalação não estão completas.")
+
+    creds = Credentials(
+        token=None,
+        refresh_token=args.refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=client_id,
+        client_secret=client_secret,
+        scopes=SCOPES
+    )
+    creds.refresh(Request())
 
     authed_http = AuthorizedHttp(creds, http=httplib2.Http(timeout=REQUEST_TIMEOUT_SECONDS))
     return build('drive', 'v3', http=authed_http, cache_discovery=False)
 
-
-def parse_folder_id():
-    dotenv_path = os.path.join(PROJECT_ROOT, '.env')
-    if not os.path.exists(dotenv_path):
-        return None
-
-    with open(dotenv_path, encoding='utf-8') as f:
-        for raw_line in f:
-            line = raw_line.strip()
-            if not line or line.startswith('#') or not line.startswith('GDRIVE_FOLDER_ID='):
-                continue
-            _, value = line.split('=', 1)
-            value = value.strip().strip('"').strip("'")
-            return value or None
-    return None
-
-
 def execute_with_retry(request_factory, description):
     last_error = None
-
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             return request_factory().execute()
@@ -85,20 +61,20 @@ def execute_with_retry(request_factory, description):
                 last_error = exc
             else:
                 raise
-
         if attempt < MAX_RETRIES:
             time.sleep(attempt)
-
     raise RuntimeError(f"{description} falhou apos {MAX_RETRIES} tentativas: {last_error}")
 
-def upload_to_gdrive(file_path, filename):
-    parent_id = parse_folder_id()
+def upload_to_gdrive(args):
+    file_path = args.file
+    filename = args.filename
+    parent_id = args.folder_id
 
     try:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Arquivo de backup nao encontrado: {file_path}")
 
-        service = get_gdrive_service()
+        service = get_gdrive_service(args)
 
         # Verificar se arquivo existe
         query = f"name = '{filename}' and trashed = false"
@@ -134,7 +110,7 @@ def upload_to_gdrive(file_path, filename):
                 ),
                 "Atualizacao do arquivo no Google Drive"
             )
-            print(f"✅ Backup atualizado no seu GDrive! ID: {file_id}")
+            print(f"✅ Backup atualizado no GDrive! ID: {file_id}")
         else:
             file_metadata = {'name': filename}
             if parent_id:
@@ -148,7 +124,7 @@ def upload_to_gdrive(file_path, filename):
                 ),
                 "Criacao do arquivo no Google Drive"
             )
-            print(f"✅ Novo backup criado no seu GDrive! ID: {new_file.get('id')}")
+            print(f"✅ Novo backup criado no GDrive! ID: {new_file.get('id')}")
         
         return True
     except Exception as e:
@@ -156,7 +132,14 @@ def upload_to_gdrive(file_path, filename):
         return False
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        sys.exit(1)
-    success = upload_to_gdrive(sys.argv[1], sys.argv[2])
+    parser = argparse.ArgumentParser(description='Upload do backup da clínica para o Google Drive')
+    parser.add_argument('file', help='Caminho para o arquivo local')
+    parser.add_argument('filename', help='Nome do arquivo no Google Drive')
+    parser.add_argument('--refresh_token', help='Google OAuth2 Refresh Token')
+    parser.add_argument('--folder_id', help='Google Drive Folder ID')
+    parser.add_argument('--client_id', help='Google OAuth2 Client ID')
+    parser.add_argument('--client_secret', help='Google OAuth2 Client Secret')
+
+    args = parser.parse_args()
+    success = upload_to_gdrive(args)
     sys.exit(0 if success else 1)

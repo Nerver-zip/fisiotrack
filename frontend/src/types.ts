@@ -26,5 +26,18 @@ export interface Patient {
   phone: string[];
   is_favorite?: boolean;
   updated_at?: string;
+  session_count?: number;
   evaluations?: Evaluation[];
+}
+
+export interface Appointment {
+  id?: number;
+  patient_id?: number; // Opcional para novos pacientes
+  patient_name: string;
+  appointment_date: string;
+  appointment_time: string;
+  duration_minutes: number;
+  notes: string;
+  status: 'scheduled' | 'completed' | 'cancelled' | 'no-show';
+  created_at?: string;
 }

@@ -6,6 +6,11 @@ BLUE='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# Garantir variáveis de ambiente para modo dev
+export ENVIRONMENT=dev
+export REACT_APP_API_URL=http://localhost:8080
+export API_HOST=127.0.0.1
+
 # Garantir que estamos no diretório do script
 cd "$(dirname "$0")"
 ROOT_DIR=$(pwd)
@@ -29,7 +34,8 @@ show_menu() {
     echo "2) Frontend (Dev Mode)"
     echo "3) Full Stack (Build Back + Run All)"
     echo "4) Full Stack (Run All - Sem Build)"
-    echo "5) Executar Testes (Build + Run)"
+    echo "5) Executar Testes Full Stack (Back + Front)"
+    echo "6) Executar Testes do Frontend (Apenas)"
     echo "q) Sair"
     echo -e "${GREEN}==========================================${NC}"
 }
@@ -86,7 +92,7 @@ run_full_stack() {
     echo -e "${GREEN}Iniciando Backend em background...${NC}"
     "$ROOT_DIR/backend/build/fisio_track_server" &
     BACKEND_PID=$!
-    
+
     echo -e "${GREEN}Iniciando Frontend...${NC}"
     (
         cd "$ROOT_DIR/frontend"
@@ -122,7 +128,24 @@ run_tests() {
         cd "$ROOT_DIR/frontend"
         CI=true npm test -- --watchAll=false
     )
-    
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Testes do frontend concluídos com sucesso!${NC}"
+    else
+        echo -e "${RED}Falha em um ou mais testes do frontend.${NC}"
+    fi
+
+    echo -e "\n${GREEN}Relatório Final de Testes Gerado.${NC}"
+    read -p "Pressione Enter para voltar ao menu..."
+}
+
+run_frontend_tests() {
+    echo -e "${BLUE}Executando Testes do Frontend (React Scripts)...${NC}"
+    (
+        cd "$ROOT_DIR/frontend"
+        CI=true npm test -- --watchAll=false
+    )
+
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Testes do frontend concluídos com sucesso!${NC}"
     else
@@ -136,13 +159,14 @@ run_tests() {
 while true; do
     show_menu
     read -p "Opção: " opt
-    
+
     case $opt in
         1) run_backend_rebuild ;;
         2) run_frontend_dev ;;
         3) run_full_stack true ;;
         4) run_full_stack false ;;
         5) run_tests ;;
+        6) run_frontend_tests ;;
         q) exit 0 ;;
         *) echo -e "${RED}Opção inválida!${NC}"; sleep 1 ;;
     esac

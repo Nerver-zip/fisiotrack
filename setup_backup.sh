@@ -12,4 +12,3 @@ python3 -m venv .venv
 ./.venv/bin/pip install -r requirements.txt
 
 echo -e "${GREEN}✅ Ambiente configurado com sucesso!${NC}"
-echo -e "Lembre-se de configurar o ${GREEN}GDRIVE_FOLDER_ID${NC} no arquivo .env se desejar usar uma pasta específica."

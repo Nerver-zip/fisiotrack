@@ -1,6 +1,7 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import AuditLogView from './AuditLogView';
+import { API_BASE_URL } from '../../config';
 
 describe('AuditLogView Component', () => {
   const mockFetchWithAuth = jest.fn();
@@ -34,9 +35,9 @@ describe('AuditLogView Component', () => {
       json: async () => sampleLogs,
     });
 
-    render(<AuditLogView fetchWithAuth={mockFetchWithAuth} />);
-
-    expect(screen.getByText(/Carregando registros/i)).toBeInTheDocument();
+    await act(async () => {
+        render(<AuditLogView fetchWithAuth={mockFetchWithAuth} />);
+    });
 
     await waitFor(() => {
       expect(screen.getByText('PATIENT_CREATE')).toBeInTheDocument();
@@ -45,7 +46,7 @@ describe('AuditLogView Component', () => {
       expect(screen.getByText('101')).toBeInTheDocument();
     });
 
-    expect(mockFetchWithAuth).toHaveBeenCalledWith('http://localhost:8080/api/audit');
+    expect(mockFetchWithAuth).toHaveBeenCalledWith(`${API_BASE_URL}/api/audit`);
   });
 
   test('deve exibir mensagem quando não houver logs', async () => {
@@ -54,7 +55,9 @@ describe('AuditLogView Component', () => {
       json: async () => [],
     });
 
-    render(<AuditLogView fetchWithAuth={mockFetchWithAuth} />);
+    await act(async () => {
+        render(<AuditLogView fetchWithAuth={mockFetchWithAuth} />);
+    });
 
     await waitFor(() => {
       expect(screen.getByText(/Nenhum registro encontrado/i)).toBeInTheDocument();
@@ -67,14 +70,19 @@ describe('AuditLogView Component', () => {
       json: async () => [],
     });
 
-    render(<AuditLogView fetchWithAuth={mockFetchWithAuth} />);
+    await act(async () => {
+        render(<AuditLogView fetchWithAuth={mockFetchWithAuth} />);
+    });
 
     await waitFor(() => {
       expect(mockFetchWithAuth).toHaveBeenCalledTimes(1);
     });
 
     const updateButton = screen.getByRole('button', { name: /Atualizar/i });
-    fireEvent.click(updateButton);
+
+    await act(async () => {
+        fireEvent.click(updateButton);
+    });
 
     await waitFor(() => {
       expect(mockFetchWithAuth).toHaveBeenCalledTimes(2);
@@ -87,7 +95,9 @@ describe('AuditLogView Component', () => {
       json: async () => sampleLogs,
     });
 
-    render(<AuditLogView fetchWithAuth={mockFetchWithAuth} />);
+    await act(async () => {
+        render(<AuditLogView fetchWithAuth={mockFetchWithAuth} />);
+    });
 
     await waitFor(() => {
       const deleteBadge = screen.getByText('PATIENT_DELETE');

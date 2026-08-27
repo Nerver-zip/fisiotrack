@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { formatDate } from '../../utils';
+import { API_BASE_URL } from '../../config';
 
 interface AuditEntry {
   id: number;
@@ -19,13 +20,29 @@ const AuditLogView: React.FC<AuditLogViewProps> = ({ fetchWithAuth }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadLogs();
-  }, []);
+    let isMounted = true;
+    const loadInitial = async () => {
+        setLoading(true);
+        try {
+          const res = await fetchWithAuth(`${API_BASE_URL}/api/audit`);
+          if (res.ok && isMounted) {
+            const data = await res.json();
+            setLogs(data);
+          }
+        } catch (err) {
+          console.error('Erro ao carregar logs', err);
+        } finally {
+          if (isMounted) setLoading(false);
+        }
+    };
+    loadInitial();
+    return () => { isMounted = false; };
+  }, [fetchWithAuth]);
 
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const res = await fetchWithAuth('http://localhost:8080/api/audit');
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/audit`);
       if (res.ok) {
         const data = await res.json();
         setLogs(data);
@@ -64,7 +81,7 @@ const AuditLogView: React.FC<AuditLogViewProps> = ({ fetchWithAuth }) => {
               ) : (
                 logs.map(log => (
                   <tr key={log.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                    <td style={{ padding: '1rem', whiteSpace: 'nowrap' }}>{new Date(log.timestamp + 'Z').toLocaleString('pt-BR')}</td>
+                    <td style={{ padding: '1rem', whiteSpace: 'nowrap' }}>{new Date(log.timestamp + 'Z').toLocaleString('pt-BR', { hour12: false })}</td>
                     <td style={{ padding: '1rem' }}>
                       <span style={{ 
                         backgroundColor: log.action.includes('DELETE') ? '#f2dede' : '#dff0d8',

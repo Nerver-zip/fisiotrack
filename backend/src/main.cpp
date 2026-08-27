@@ -4,9 +4,11 @@
 #include <cstdlib>
 #include <string>
 #include <filesystem>
+#include <sys/stat.h>
 #include "../include/clinic/sqlite_database.hpp"
 #include "../include/clinic/patient_repository.hpp"
 #include "../include/clinic/api_server.hpp"
+#include "../include/clinic/database_migration.hpp"
 
 using namespace clinic;
 
@@ -15,13 +17,16 @@ using namespace clinic;
  */
 std::filesystem::path find_project_root() {
     std::filesystem::path current = std::filesystem::current_path();
-    while (current.has_parent_path()) {
-        if (std::filesystem::exists(current / ".env")) {
+    while (true) {
+        if (std::filesystem::exists(current / ".env") ||
+            (std::filesystem::exists(current / "backend") && std::filesystem::exists(current / "frontend"))) {
             return current;
         }
-        current = current.parent_path();
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
     }
-    return std::filesystem::current_path(); // Fallback
+    return std::filesystem::current_path();
 }
 
 /**
@@ -38,68 +43,49 @@ void load_env(const std::filesystem::path& path) {
             std::string key = line.substr(0, sep);
             std::string val = line.substr(sep + 1);
             if (!val.empty() && val.back() == '\r') val.pop_back();
-            setenv(key.c_str(), val.c_str(), 1);
+            // Variáveis fornecidas pelo processo têm precedência sobre o arquivo.
+            setenv(key.c_str(), val.c_str(), 0);
         }
     }
 }
 
 int main() {
+    // Dados clínicos e segredos novos ficam acessíveis apenas ao usuário do processo.
+    umask(S_IRWXG | S_IRWXO);
     std::filesystem::path root = find_project_root();
     load_env(root / ".env");
 
     const char* env_mode = std::getenv("DB_TYPE");
-    std::string mode = env_mode ? env_mode : "real"; 
+    const std::string mode = env_mode ? env_mode : "real";
 
-    std::string raw_path;
-    std::string db_pass = "";
+    const char* configured_path = mode == "mock" ? std::getenv("DB_MOCK_PATH") : std::getenv("DB_REAL_PATH");
+    std::filesystem::path db_path = configured_path
+        ? std::filesystem::path(configured_path)
+        : std::filesystem::path(mode == "mock" ? "database/mock_patients.db" : "database/patients.db");
+    if (db_path.is_relative()) db_path = root / db_path;
 
-    if (mode == "mock") {
-        std::cout << "🛠️  MODO: DESENVOLVIMENTO (Persistente)" << std::endl;
-        const char* m_path = std::getenv("DB_MOCK_PATH");
-        const char* m_pass = std::getenv("DB_MOCK_PASSWORD");
-        raw_path = m_path ? m_path : "database/mock_patients.db";
-        db_pass = m_pass ? m_pass : "";
-    } else {
-        std::cout << "🔒 MODO: PRODUÇÃO (Zero-Knowledge)" << std::endl;
-        const char* r_path = std::getenv("DB_REAL_PATH");
-        raw_path = r_path ? r_path : "database/patients.db";
-        db_pass = ""; 
-    }
+    if (!prepare_database_storage(root, db_path, std::cout, std::cerr)) return 1;
+    if (db_path.has_parent_path()) std::filesystem::create_directories(db_path.parent_path());
 
-    // Resolve o caminho final: se for relativo, baseia-se na raiz do projeto
-    std::filesystem::path db_fs_path(raw_path);
-    if (db_fs_path.is_relative()) {
-        db_fs_path = root / db_fs_path;
-    }
-    std::string db_path = db_fs_path.string();
-
-    std::unique_ptr<IDatabase> db = std::make_unique<SqliteDatabase>();
-    auto repo = std::make_shared<PatientRepository>(std::move(db));
-
-    // Garante que o diretório do banco existe
-    if (db_fs_path.has_parent_path()) {
-        std::filesystem::create_directories(db_fs_path.parent_path());
-    }
-
-    if (!repo->initialize(db_path)) {
-        std::cerr << "Falha ao preparar repositório de dados em: " << db_path << std::endl;
+    auto repo = std::make_shared<PatientRepository>(std::make_unique<SqliteDatabase>());
+    if (!repo->initialize(db_path.string())) {
+        std::cerr << "Falha ao preparar o armazenamento local." << std::endl;
         return 1;
     }
 
-    std::cout << "📁 Banco de Dados carregado de: " << db_path << std::endl;
-
-    if (mode == "mock" && !repo->is_initialized() && !db_pass.empty()) {
-        std::cout << "✨ Inicializando banco de teste automaticamente..." << std::endl;
-        if (repo->authenticate(db_pass)) {
-            repo->logout(); 
-            std::cout << "✅ Banco de teste pronto." << std::endl;
-        }
+    if (mode == "mock" && !repo->is_initialized()) {
+        const char* mock_password = std::getenv("DB_MOCK_PASSWORD");
+        if (mock_password && *mock_password && repo->authenticate(mock_password)) repo->logout();
     }
 
     const char* env_port = std::getenv("API_PORT");
     int port = env_port ? std::stoi(env_port) : 8080;
     const char* env_host = std::getenv("API_HOST");
-    std::string host = env_host ? env_host : "0.0.0.0";
+    std::string host = env_host ? env_host : "127.0.0.1";
+
+    std::cout << "Iniciando FisioTrack para a rede da clínica..." << std::endl;
+    std::cout << "📂 Project Root: " << root << std::endl;
+    std::cout << "📁 Banco de dados: " << db_path << std::endl;
 
     ApiServer server(repo, root);
     server.listen(host, port);

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { SyncState } from '../components/common/SyncIcon';
+import { API_BASE_URL } from '../config';
 
 interface UseSyncProps {
   token: string | null;
@@ -13,9 +14,21 @@ export function useSync({ token, syncStatus, setSyncStatus, fetchWithAuth }: Use
 
   const handleBackup = useCallback(async () => {
     if (!token) return;
+    if (syncStatus === 'sincronizando') return;
+    if (syncStatus === 'desconectado') {
+        alert('Configure o Backup Cloud primeiro.');
+        return;
+    }
+
+    if (syncStatus === 'sincronizado') {
+        if (!window.confirm('O sistema já está sincronizado. Forçar um novo backup agora?')) {
+            return;
+        }
+    }
+
     setSyncStatus('sincronizando');
     try {
-      const res = await fetchWithAuth('http://localhost:8080/api/backup', { method: 'POST' });
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/backup`, { method: 'POST' });
       if (res.ok) {
         setSyncStatus('sincronizado');
       } else {
@@ -32,7 +45,7 @@ export function useSync({ token, syncStatus, setSyncStatus, fetchWithAuth }: Use
     if (syncStatus === 'pendente') {
       syncTimerRef.current = setTimeout(() => {
         handleBackup();
-      }, 5 * 60 * 1000); // 5 minutos
+      }, 30 * 1000); // 30 segundos
     }
 
     return () => {

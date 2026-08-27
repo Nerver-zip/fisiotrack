@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Patient, Evaluation } from '../../types';
 import { formatDate, calculateAge } from '../../utils';
-import { Pencil, Trash2, PlusCircle } from 'lucide-react';
+import { Pencil, Trash2, PlusCircle, X } from 'lucide-react';
 import './Modal.css';
 
 interface PatientDetailModalProps {
@@ -36,13 +36,15 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
       <div className="modal-content detail-modal">
         <div className="modal-header">
           <h2 className="modal-title">Prontuário do Paciente</h2>
-          <button className="btn-close" onClick={onClose}>&times;</button>
+          <button className="btn-close" onClick={onClose}><X size={24} /></button>
         </div>
         
         <div className="modal-body-scroll">
           <section className="detail-section">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ borderLeft: '4px solid var(--unimed-green)', paddingLeft: '10px', margin: 0 }}>📍 Dados Cadastrais</h3>
+              <h3 style={{ borderLeft: '4px solid var(--unimed-green)', paddingLeft: '10px', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📍 Dados Cadastrais
+              </h3>
               <button 
                 className="btn-icon" 
                 onClick={() => onEditPatient(patient)}

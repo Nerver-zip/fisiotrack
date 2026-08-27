@@ -12,6 +12,7 @@ bool SqliteDatabase::is_open() const {
 }
 
 bool SqliteDatabase::open(const std::string& db_path, const std::string& key) {
+    if (m_db) close();
     if (sqlite3_open(db_path.c_str(), &m_db) != SQLITE_OK) return false;
 
     if (!key.empty()) {
@@ -23,6 +24,9 @@ bool SqliteDatabase::open(const std::string& db_path, const std::string& key) {
 
     // Ativar chaves estrangeiras para garantir integridade e delete cascade
     sqlite3_exec(m_db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+    sqlite3_busy_timeout(m_db, 5000);
+    sqlite3_exec(m_db, "PRAGMA journal_mode = WAL;", nullptr, nullptr, nullptr);
+    sqlite3_exec(m_db, "PRAGMA synchronous = NORMAL;", nullptr, nullptr, nullptr);
 
     // TESTE DE CHAVE: Tentar ler algo do banco para ver se a senha bate.
     char* err_msg = nullptr;
@@ -75,10 +79,31 @@ bool SqliteDatabase::open(const std::string& db_path, const std::string& key) {
                             "details TEXT,"
                             "user_info TEXT);";
 
+    const char* sql_cloud = "CREATE TABLE IF NOT EXISTS cloud_config ("
+                            "id INTEGER PRIMARY KEY CHECK (id = 1),"
+                            "provider TEXT DEFAULT 'google_drive',"
+                            "refresh_token TEXT,"
+                            "folder_id TEXT,"
+                            "is_enabled INTEGER DEFAULT 0);";
+
+    const char* sql_appointments = "CREATE TABLE IF NOT EXISTS appointments ("
+                                   "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                                   "patient_id INTEGER,"
+                                   "patient_name TEXT NOT NULL,"
+                                   "appointment_date TEXT NOT NULL,"
+                                   "appointment_time TEXT NOT NULL,"
+                                   "duration_minutes INTEGER DEFAULT 30,"
+                                   "notes TEXT,"
+                                   "status TEXT DEFAULT 'scheduled',"
+                                   "created_at TEXT DEFAULT (datetime('now')),"
+                                   "FOREIGN KEY(patient_id) REFERENCES patients(id) ON DELETE SET NULL);";
+
     if (sqlite3_exec(m_db, sql_patients, nullptr, nullptr, &err_msg) != SQLITE_OK ||
         sqlite3_exec(m_db, sql_phones, nullptr, nullptr, &err_msg) != SQLITE_OK ||
         sqlite3_exec(m_db, sql_evaluations, nullptr, nullptr, &err_msg) != SQLITE_OK ||
-        sqlite3_exec(m_db, sql_audit, nullptr, nullptr, &err_msg) != SQLITE_OK) {
+        sqlite3_exec(m_db, sql_audit, nullptr, nullptr, &err_msg) != SQLITE_OK ||
+        sqlite3_exec(m_db, sql_cloud, nullptr, nullptr, &err_msg) != SQLITE_OK ||
+        sqlite3_exec(m_db, sql_appointments, nullptr, nullptr, &err_msg) != SQLITE_OK) {
         if (err_msg) sqlite3_free(err_msg);
         return false;
     }
@@ -155,7 +180,9 @@ bool SqliteDatabase::add_patient(const Patient& p) {
 }
 
 std::optional<Patient> SqliteDatabase::get_patient(int id) {
-    const char* sql = "SELECT * FROM patients WHERE id = ?;";
+    const char* sql = "SELECT p.*, "
+                      "(SELECT COUNT(*) FROM appointments a WHERE a.patient_id = p.id AND a.status = 'completed') as session_count "
+                      "FROM patients p WHERE p.id = ?;";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return std::nullopt;
     sqlite3_bind_int(stmt, 1, id);
@@ -181,9 +208,10 @@ std::optional<Patient> SqliteDatabase::get_patient(int id) {
         Patient p = {
             sqlite3_column_int(stmt, 0), get_text(1), get_text(2), get_text(3),
             get_text(4), get_text(5), get_text(6), get_text(7), get_text(8),
-            phones, 
+            phones,
             sqlite3_column_int(stmt, 9) != 0, // is_favorite
             get_text(10), // updated_at
+            sqlite3_column_int(stmt, 11), // session_count
             get_patient_evaluations(sqlite3_column_int(stmt, 0))
         };
         sqlite3_finalize(stmt);
@@ -195,7 +223,8 @@ std::optional<Patient> SqliteDatabase::get_patient(int id) {
 
 std::vector<Patient> SqliteDatabase::get_all_patients() {
     std::vector<Patient> patients;
-    const char* sql = "SELECT p.*, e.evaluation_date, e.medical_diagnosis "
+    const char* sql = "SELECT p.*, e.evaluation_date, e.medical_diagnosis, "
+                      "(SELECT COUNT(*) FROM appointments a WHERE a.patient_id = p.id AND a.status = 'completed') as session_count "
                       "FROM patients p "
                       "LEFT JOIN ( "
                       "    SELECT patient_id, evaluation_date, medical_diagnosis, "
@@ -224,6 +253,7 @@ std::vector<Patient> SqliteDatabase::get_all_patients() {
         p.profession = get_text(8);
         p.is_favorite = sqlite3_column_int(stmt, 9) != 0;
         p.updated_at = get_text(10);
+        p.session_count = sqlite3_column_int(stmt, 13); // Coluna 13 é o session_count (p.* são 11 colunas, + eval_date, diag)
 
         std::string last_date = get_text(11);
         if (!last_date.empty()) {
@@ -238,9 +268,54 @@ std::vector<Patient> SqliteDatabase::get_all_patients() {
     return patients;
 }
 
+std::vector<Patient> SqliteDatabase::get_all_patients_full() {
+    std::vector<Patient> patients;
+    const char* sql = "SELECT p.*, "
+                      "(SELECT COUNT(*) FROM appointments a WHERE a.patient_id = p.id AND a.status = 'completed') as session_count "
+                      "FROM patients p ORDER BY p.name ASC;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return patients;
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        auto get_text = [&](int col) -> std::string {
+            const unsigned char* text = sqlite3_column_text(stmt, col);
+            return text ? reinterpret_cast<const char*>(text) : "";
+        };
+
+        int patient_id = sqlite3_column_int(stmt, 0);
+
+        // Buscar telefones
+        std::vector<std::string> phones;
+        const char* sql_phones = "SELECT phone FROM patient_phones WHERE patient_id = ?;";
+        sqlite3_stmt* p_stmt;
+        if (sqlite3_prepare_v2(m_db, sql_phones, -1, &p_stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_int(p_stmt, 1, patient_id);
+            while (sqlite3_step(p_stmt) == SQLITE_ROW) {
+                const unsigned char* text = sqlite3_column_text(p_stmt, 0);
+                if (text) phones.push_back(reinterpret_cast<const char*>(text));
+            }
+            sqlite3_finalize(p_stmt);
+        }
+
+        Patient p = {
+            patient_id, get_text(1), get_text(2), get_text(3),
+            get_text(4), get_text(5), get_text(6), get_text(7), get_text(8),
+            phones,
+            sqlite3_column_int(stmt, 9) != 0, // is_favorite
+            get_text(10), // updated_at
+            sqlite3_column_int(stmt, 11), // session_count
+            get_patient_evaluations(patient_id)
+        };
+        patients.push_back(p);
+    }
+    sqlite3_finalize(stmt);
+    return patients;
+}
+
 std::vector<Patient> SqliteDatabase::search_patients(const std::string& query) {
     std::vector<Patient> patients;
-    const char* sql = "SELECT p.*, e.evaluation_date, e.medical_diagnosis "
+    const char* sql = "SELECT p.*, e.evaluation_date, e.medical_diagnosis, "
+                      "(SELECT COUNT(*) FROM appointments a WHERE a.patient_id = p.id AND a.status = 'completed') as session_count "
                       "FROM patients p "
                       "LEFT JOIN ( "
                       "    SELECT patient_id, evaluation_date, medical_diagnosis, "
@@ -273,6 +348,7 @@ std::vector<Patient> SqliteDatabase::search_patients(const std::string& query) {
         p.profession = get_text(8);
         p.is_favorite = sqlite3_column_int(stmt, 9) != 0;
         p.updated_at = get_text(10);
+        p.session_count = sqlite3_column_int(stmt, 13);
 
         std::string last_date = get_text(11);
         if (!last_date.empty()) {
@@ -499,6 +575,124 @@ bool SqliteDatabase::delete_evaluation(int id) {
     return success;
 }
 
+bool SqliteDatabase::add_appointment(const Appointment& a) {
+    const char* sql = "INSERT INTO appointments (patient_id, patient_name, appointment_date, appointment_time, duration_minutes, notes, status) "
+                      "VALUES (?, ?, ?, ?, ?, ?, ?);";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+
+    if (a.patient_id) sqlite3_bind_int(stmt, 1, *a.patient_id);
+    else sqlite3_bind_null(stmt, 1);
+
+    sqlite3_bind_text(stmt, 2, a.patient_name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, a.appointment_date.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, a.appointment_time.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 5, a.duration_minutes);
+    sqlite3_bind_text(stmt, 6, a.notes.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 7, a.status.c_str(), -1, SQLITE_TRANSIENT);
+
+    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    return success;
+}
+
+std::vector<Appointment> SqliteDatabase::get_appointments(const std::string& date) {
+    std::vector<Appointment> appointments;
+    const char* sql = "SELECT * FROM appointments WHERE appointment_date = ? ORDER BY appointment_time ASC;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return appointments;
+
+    sqlite3_bind_text(stmt, 1, date.c_str(), -1, SQLITE_TRANSIENT);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        auto get_text = [&](int col) -> std::string {
+            const unsigned char* text = sqlite3_column_text(stmt, col);
+            return text ? reinterpret_cast<const char*>(text) : "";
+        };
+
+        Appointment a;
+        a.id = sqlite3_column_int(stmt, 0);
+        if (sqlite3_column_type(stmt, 1) != SQLITE_NULL) {
+            a.patient_id = sqlite3_column_int(stmt, 1);
+        }
+        a.patient_name = get_text(2);
+        a.appointment_date = get_text(3);
+        a.appointment_time = get_text(4);
+        a.duration_minutes = sqlite3_column_int(stmt, 5);
+        a.notes = get_text(6);
+        a.status = get_text(7);
+        a.created_at = get_text(8);
+        appointments.push_back(a);
+    }
+    sqlite3_finalize(stmt);
+    return appointments;
+}
+
+std::vector<Appointment> SqliteDatabase::get_patient_appointments(int patient_id) {
+    std::vector<Appointment> appointments;
+    const char* sql = "SELECT * FROM appointments WHERE patient_id = ? ORDER BY appointment_date DESC, appointment_time DESC;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return appointments;
+
+    sqlite3_bind_int(stmt, 1, patient_id);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        auto get_text = [&](int col) -> std::string {
+            const unsigned char* text = sqlite3_column_text(stmt, col);
+            return text ? reinterpret_cast<const char*>(text) : "";
+        };
+
+        Appointment a;
+        a.id = sqlite3_column_int(stmt, 0);
+        if (sqlite3_column_type(stmt, 1) != SQLITE_NULL) {
+            a.patient_id = sqlite3_column_int(stmt, 1);
+        }
+        a.patient_name = get_text(2);
+        a.appointment_date = get_text(3);
+        a.appointment_time = get_text(4);
+        a.duration_minutes = sqlite3_column_int(stmt, 5);
+        a.notes = get_text(6);
+        a.status = get_text(7);
+        a.created_at = get_text(8);
+        appointments.push_back(a);
+    }
+    sqlite3_finalize(stmt);
+    return appointments;
+}
+
+bool SqliteDatabase::update_appointment(const Appointment& a) {
+    if (!a.id) return false;
+    const char* sql = "UPDATE appointments SET patient_id=?, patient_name=?, appointment_date=?, appointment_time=?, "
+                      "duration_minutes=?, notes=?, status=? WHERE id=?;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+
+    if (a.patient_id) sqlite3_bind_int(stmt, 1, *a.patient_id);
+    else sqlite3_bind_null(stmt, 1);
+
+    sqlite3_bind_text(stmt, 2, a.patient_name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, a.appointment_date.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, a.appointment_time.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 5, a.duration_minutes);
+    sqlite3_bind_text(stmt, 6, a.notes.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 7, a.status.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 8, *a.id);
+
+    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    return success;
+}
+
+bool SqliteDatabase::delete_appointment(int id) {
+    const char* sql = "DELETE FROM appointments WHERE id = ?;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_int(stmt, 1, id);
+    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    return success;
+}
+
 bool SqliteDatabase::add_audit_log(const std::string& action, int entity_id, const std::string& details, const std::string& user_info) {
     const char* sql = "INSERT INTO audit_logs (action, entity_id, details, user_info) VALUES (?, ?, ?, ?);";
     sqlite3_stmt* stmt;
@@ -560,6 +754,45 @@ bool SqliteDatabase::create_backup(const std::string& target_path) {
         return false;
     }
     return true;
+}
+
+std::optional<CloudConfig> SqliteDatabase::get_cloud_config() {
+    const char* sql = "SELECT provider, refresh_token, folder_id, is_enabled FROM cloud_config WHERE id = 1;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return std::nullopt;
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        CloudConfig c;
+        const unsigned char* prov = sqlite3_column_text(stmt, 0);
+        const unsigned char* refr = sqlite3_column_text(stmt, 1);
+        const unsigned char* fold = sqlite3_column_text(stmt, 2);
+
+        c.provider = prov ? reinterpret_cast<const char*>(prov) : "google_drive";
+        c.refresh_token = refr ? reinterpret_cast<const char*>(refr) : "";
+        c.folder_id = fold ? reinterpret_cast<const char*>(fold) : "";
+        c.is_enabled = sqlite3_column_int(stmt, 3) != 0;
+
+        sqlite3_finalize(stmt);
+        return c;
+    }
+    sqlite3_finalize(stmt);
+    return std::nullopt;
+}
+
+bool SqliteDatabase::update_cloud_config(const CloudConfig& config) {
+    const char* sql = "INSERT OR REPLACE INTO cloud_config (id, provider, refresh_token, folder_id, is_enabled) "
+                      "VALUES (1, ?, ?, ?, ?);";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+
+    sqlite3_bind_text(stmt, 1, config.provider.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, config.refresh_token.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, config.folder_id.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 4, config.is_enabled ? 1 : 0);
+
+    bool success = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    return success;
 }
 
 } // namespace clinic

@@ -26,6 +26,18 @@
   --unimed-white: #FFFFFF;
   --unimed-text: #333333;
   --unimed-border: #E0E0E0;
+
+  /* Design Tokens: Spacing & Sizing */
+  --spacing-xs: 0.5rem;   /* 8px */
+  --spacing-sm: 0.75rem;  /* 12px */
+  --spacing-md: 1rem;     /* 16px */
+  --spacing-lg: 1.5rem;   /* 24px */
+  --spacing-xl: 2rem;     /* 32px */
+
+  --modal-max-width-sm: 450px;
+  --modal-max-width-md: 600px;
+  --modal-max-width-lg: 800px;
+  --modal-list-max-height: 40vh; /* Relativo à altura da tela */
 }
 
 * {
@@ -141,6 +153,10 @@ body {
 
 .btn-primary:hover {
   background-color: var(--unimed-dark-green);
+}
+
+.btn-with-icon {
+  gap: var(--spacing-xs);
 }
 
 /* Ordenação */
@@ -360,4 +376,89 @@ tr:hover .actions-cell {
 .spin {
   display: inline-block;
   animation: spin 2s linear infinite;
+}
+
+/* Responsividade Mobile */
+@media (max-width: 768px) {
+  .main-content {
+    padding: 1rem;
+  }
+
+  .card {
+    padding: 1.25rem;
+  }
+
+  .search-bar {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .search-group {
+    width: 100%;
+  }
+
+  .action-buttons {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .action-buttons .btn-primary {
+    width: 100%;
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .actions-cell {
+    opacity: 1;
+  }
+}
+
+/* Status Pills */
+.status-pill {
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.status-pill.scheduled {
+  background-color: #007bff;
+  color: white;
+  border: 1px solid #0069d9;
+}
+
+.status-pill.completed {
+  background-color: var(--unimed-green);
+  color: white;
+  border: 1px solid var(--unimed-dark-green);
+}
+
+.status-pill.cancelled {
+  background-color: #dc3545;
+  color: white;
+  border: 1px solid #c82333;
+}
+
+.status-pill.no-show {
+  background-color: var(--unimed-orange);
+  color: white;
+  border: 1px solid #d39e00;
+}
+
+/* Agenda Status Badge (Versão compacta para Cards) */
+.appt-footer .status-pill {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.6rem;
 }

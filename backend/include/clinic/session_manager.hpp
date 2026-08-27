@@ -15,7 +15,7 @@ class SessionManager {
 public:
     explicit SessionManager(int timeout_minutes = 30);
 
-    // Gera um token criptograficamente seguro e cria uma nova sessão
+    // Gera um token criptograficamente seguro e cria uma nova sessão.
     std::string create_session();
 
     // Valida se o token existe e não está expirado. Atualiza o timestamp se válido.
@@ -27,7 +27,7 @@ public:
     // Remove sessões que ultrapassaram o tempo de inatividade
     void cleanup_expired();
 
-    // Retorna a quantidade de sessões ativas (não expiradas)
+    // Retorna a quantidade de sessões ativas (não expiradas) no sistema todo
     size_t active_sessions_count();
 
     // Remove todas as sessões

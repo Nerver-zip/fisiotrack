@@ -57,6 +57,9 @@ struct Patient {
     bool is_favorite = false;
     std::string updated_at;
     
+    // Contagem virtual de sessões concluídas (calculada em runtime)
+    int session_count = 0;
+
     // Histórico de avaliações
     std::vector<Evaluation> evaluations;
 
@@ -72,11 +75,69 @@ struct Patient {
                profession == other.profession &&
                phone == other.phone &&
                is_favorite == other.is_favorite &&
-               updated_at == other.updated_at;
+               updated_at == other.updated_at &&
+               session_count == other.session_count;
+    }
+};
+
+/**
+ * @brief Representa um agendamento na agenda da clínica.
+ */
+struct Appointment {
+    std::optional<int> id;
+    std::optional<int> patient_id; // NULL para pacientes novos
+    std::string patient_name;      // Nome (obrigatório)
+    std::string appointment_date;  // ISO "YYYY-MM-DD"
+    std::string appointment_time;  // "HH:MM"
+    int duration_minutes = 30;
+    std::string notes;
+    std::string status = "scheduled"; // scheduled, completed, cancelled, no-show
+    std::string created_at;
+
+    bool operator==(const Appointment& other) const {
+        return id == other.id &&
+               patient_id == other.patient_id &&
+               patient_name == other.patient_name &&
+               appointment_date == other.appointment_date &&
+               appointment_time == other.appointment_time &&
+               duration_minutes == other.duration_minutes &&
+               notes == other.notes &&
+               status == other.status;
     }
 };
 
 // --- Serialização JSON ---
+
+inline void to_json(nlohmann::json& j, const Appointment& a) {
+    j = nlohmann::json{
+        {"patient_name", a.patient_name},
+        {"appointment_date", a.appointment_date},
+        {"appointment_time", a.appointment_time},
+        {"duration_minutes", a.duration_minutes},
+        {"notes", a.notes},
+        {"status", a.status},
+        {"created_at", a.created_at}
+    };
+    if (a.id) j["id"] = *a.id;
+    if (a.patient_id) j["patient_id"] = *a.patient_id;
+    else j["patient_id"] = nullptr;
+}
+
+inline void from_json(const nlohmann::json& j, Appointment& a) {
+    if (j.contains("id")) a.id = j.at("id").get<int>();
+    if (j.contains("patient_id") && !j.at("patient_id").is_null()) {
+        a.patient_id = j.at("patient_id").get<int>();
+    } else {
+        a.patient_id = std::nullopt;
+    }
+    a.patient_name = j.value("patient_name", "");
+    a.appointment_date = j.value("appointment_date", "");
+    a.appointment_time = j.value("appointment_time", "");
+    a.duration_minutes = j.value("duration_minutes", 30);
+    a.notes = j.value("notes", "");
+    a.status = j.value("status", "scheduled");
+    a.created_at = j.value("created_at", "");
+}
 
 inline void to_json(nlohmann::json& j, const Evaluation& e) {
     j = nlohmann::json{
@@ -123,7 +184,8 @@ inline void to_json(nlohmann::json& j, const Patient& p) {
         {"phone", p.phone},
         {"is_favorite", p.is_favorite},
         {"updated_at", p.updated_at},
-        {"evaluations", p.evaluations}
+        {"evaluations", p.evaluations},
+        {"session_count", p.session_count}
     };
     if (p.id) j["id"] = *p.id;
 }
@@ -142,6 +204,7 @@ inline void from_json(const nlohmann::json& j, Patient& p) {
     p.is_favorite = j.value("is_favorite", false);
     p.updated_at = j.value("updated_at", "");
     p.evaluations = j.value("evaluations", std::vector<Evaluation>{});
+    p.session_count = j.value("session_count", 0);
 }
 
 /**
@@ -155,6 +218,32 @@ struct AuditLog {
     std::string details;
     std::string user_info;
 };
+
+/**
+ * @brief Configurações de backup em nuvem por clínica.
+ */
+struct CloudConfig {
+    std::string provider = "google_drive";
+    std::string refresh_token;
+    std::string folder_id;
+    bool is_enabled = false;
+};
+
+inline void to_json(nlohmann::json& j, const CloudConfig& c) {
+    j = nlohmann::json{
+        {"provider", c.provider},
+        {"refresh_token", c.refresh_token},
+        {"folder_id", c.folder_id},
+        {"is_enabled", c.is_enabled}
+    };
+}
+
+inline void from_json(const nlohmann::json& j, CloudConfig& c) {
+    c.provider = j.value("provider", "google_drive");
+    c.refresh_token = j.value("refresh_token", "");
+    c.folder_id = j.value("folder_id", "");
+    c.is_enabled = j.value("is_enabled", false);
+}
 
 inline void to_json(nlohmann::json& j, const AuditLog& l) {
     j = nlohmann::json{

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Patient, Evaluation } from '../types';
+import { API_BASE_URL } from '../config';
 
 interface UseModalsProps {
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<Response>;
@@ -13,15 +14,20 @@ export function useModals({ fetchWithAuth, refreshPatients, searchTerm }: UseMod
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isEvalModalOpen, setIsEvalModalOpen] = useState(false);
   const [isDeleteEvalModalOpen, setIsDeleteEvalModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isApptModalOpen, setIsApptModalOpen] = useState(false);
+  const [isDeleteApptModalOpen, setIsDeleteApptModalOpen] = useState(false);
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [patientToEdit, setPatientToEdit] = useState<Patient | null>(null);
   const [evaluationToEdit, setEvaluationToEdit] = useState<Evaluation | null>(null);
   const [evaluationToDelete, setEvaluationToDelete] = useState<Evaluation | null>(null);
+  const [apptToEdit, setApptToEdit] = useState<any | null>(null);
+  const [apptToDelete, setApptToDelete] = useState<any | null>(null);
 
   const fetchPatientWithHistory = useCallback(async (id: number) => {
     try {
-      const response = await fetchWithAuth(`http://localhost:8080/api/patients/${id}`);
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/patients/${id}`);
       if (response.ok) {
         const data = await response.json();
         setSelectedPatient(data);
@@ -36,8 +42,8 @@ export function useModals({ fetchWithAuth, refreshPatients, searchTerm }: UseMod
     try {
       const isEdit = !!patient.id;
       const url = isEdit 
-        ? `http://localhost:8080/api/patients/${patient.id}`
-        : 'http://localhost:8080/api/patients';
+        ? `${API_BASE_URL}/api/patients/${patient.id}`
+        : `${API_BASE_URL}/api/patients`;
       
       const response = await fetchWithAuth(url, {
         method: isEdit ? 'PUT' : 'POST',
@@ -63,8 +69,8 @@ export function useModals({ fetchWithAuth, refreshPatients, searchTerm }: UseMod
     try {
       const isEdit = !!evaluation.id;
       const url = isEdit
-        ? `http://localhost:8080/api/patients/${evaluation.patient_id}/evaluations/${evaluation.id}`
-        : `http://localhost:8080/api/patients/${evaluation.patient_id}/evaluations`;
+        ? `${API_BASE_URL}/api/patients/${evaluation.patient_id}/evaluations/${evaluation.id}`
+        : `${API_BASE_URL}/api/patients/${evaluation.patient_id}/evaluations`;
 
       const response = await fetchWithAuth(url, {
         method: isEdit ? 'PUT' : 'POST',
@@ -87,7 +93,7 @@ export function useModals({ fetchWithAuth, refreshPatients, searchTerm }: UseMod
   const confirmDelete = async () => {
     if (!selectedPatient || !selectedPatient.id) return;
     try {
-      const response = await fetchWithAuth(`http://localhost:8080/api/patients/${selectedPatient.id}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/patients/${selectedPatient.id}`, {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -103,7 +109,7 @@ export function useModals({ fetchWithAuth, refreshPatients, searchTerm }: UseMod
   const confirmDeleteEvaluation = async () => {
     if (!evaluationToDelete || !evaluationToDelete.id) return;
     try {
-      const response = await fetchWithAuth(`http://localhost:8080/api/patients/${evaluationToDelete.patient_id}/evaluations/${evaluationToDelete.id}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/patients/${evaluationToDelete.patient_id}/evaluations/${evaluationToDelete.id}`, {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -123,13 +129,18 @@ export function useModals({ fetchWithAuth, refreshPatients, searchTerm }: UseMod
       isDetailModalOpen, setIsDetailModalOpen,
       isFormModalOpen, setIsFormModalOpen,
       isEvalModalOpen, setIsEvalModalOpen,
-      isDeleteEvalModalOpen, setIsDeleteEvalModalOpen
+      isDeleteEvalModalOpen, setIsDeleteEvalModalOpen,
+      isExportModalOpen, setIsExportModalOpen,
+      isApptModalOpen, setIsApptModalOpen,
+      isDeleteApptModalOpen, setIsDeleteApptModalOpen
     },
     data: {
       selectedPatient, setSelectedPatient,
       patientToEdit, setPatientToEdit,
       evaluationToEdit, setEvaluationToEdit,
-      evaluationToDelete, setEvaluationToDelete
+      evaluationToDelete, setEvaluationToDelete,
+      apptToEdit, setApptToEdit,
+      apptToDelete, setApptToDelete
     },
     actions: {
       fetchPatientWithHistory,

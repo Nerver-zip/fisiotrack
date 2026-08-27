@@ -11,7 +11,7 @@ namespace clinic {
  */
 class MockDatabase : public IDatabase {
 public:
-    MockDatabase() : m_next_patient_id(1), m_next_eval_id(1), m_is_open(false) {}
+    MockDatabase() : m_next_patient_id(1), m_next_eval_id(1), m_next_appt_id(1), m_is_open(false) {}
     ~MockDatabase() override = default;
 
     bool open(const std::string&, const std::string&) override { 
@@ -22,6 +22,10 @@ public:
     void close() override { 
         m_patients.clear(); 
         m_evaluations.clear(); 
+        m_appointments.clear();
+        m_next_patient_id = 1;
+        m_next_eval_id = 1;
+        m_next_appt_id = 1;
         m_is_open = false;
     }
 
@@ -56,6 +60,16 @@ public:
         std::vector<Patient> all;
         for (auto const& [id, p] : m_patients) {
             all.push_back(p);
+        }
+        return all;
+    }
+
+    std::vector<Patient> get_all_patients_full() override {
+        std::vector<Patient> all;
+        for (auto const& [id, p] : m_patients) {
+            Patient full_p = p;
+            full_p.evaluations = get_patient_evaluations(id);
+            all.push_back(full_p);
         }
         return all;
     }
@@ -137,24 +151,93 @@ public:
         return false;
     }
 
-    bool add_audit_log(const std::string& action, int entity_id, const std::string& details, const std::string& user_info) override {
+    // --- Agendamentos ---
+    bool add_appointment(const Appointment& a) override {
+        Appointment new_a = a;
+        new_a.id = m_next_appt_id++;
+        m_appointments.push_back(new_a);
+        return true;
+    }
+
+    std::vector<Appointment> get_appointments(const std::string& date) override {
+        std::vector<Appointment> results;
+        for (const auto& a : m_appointments) {
+            if (a.appointment_date == date) {
+                results.push_back(a);
+            }
+        }
+        std::sort(results.begin(), results.end(), [](const Appointment& a, const Appointment& b) {
+            return a.appointment_time < b.appointment_time;
+        });
+        return results;
+    }
+
+    std::vector<Appointment> get_patient_appointments(int patient_id) override {
+        std::vector<Appointment> results;
+        for (const auto& a : m_appointments) {
+            if (a.patient_id && *a.patient_id == patient_id) {
+                results.push_back(a);
+            }
+        }
+        std::sort(results.begin(), results.end(), [](const Appointment& a, const Appointment& b) {
+            if (a.appointment_date != b.appointment_date) return a.appointment_date > b.appointment_date;
+            return a.appointment_time > b.appointment_time;
+        });
+        return results;
+    }
+
+    bool update_appointment(const Appointment& a) override {
+        if (!a.id) return false;
+        for (auto& item : m_appointments) {
+            if (item.id == a.id) {
+                item = a;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool delete_appointment(int id) override {
+        auto it = std::remove_if(m_appointments.begin(), m_appointments.end(), [id](const Appointment& a) {
+            return a.id == id;
+        });
+        if (it != m_appointments.end()) {
+            m_appointments.erase(it, m_appointments.end());
+            return true;
+        }
+        return false;
+    }
+
+    bool add_audit_log([[maybe_unused]] const std::string& action, [[maybe_unused]] int entity_id, [[maybe_unused]] const std::string& details, [[maybe_unused]] const std::string& user_info) override {
         // Mock apenas confirma sucesso
         return true;
     }
 
-    std::vector<AuditLog> get_audit_logs(int limit) override {
+    std::vector<AuditLog> get_audit_logs([[maybe_unused]] int limit) override {
         return {}; // Mock retorna vazio
     }
 
-    bool create_backup(const std::string& target_path) override {
+    bool create_backup([[maybe_unused]] const std::string& target_path) override {
         return true; // Simula sucesso
+    }
+
+    std::optional<CloudConfig> get_cloud_config() override {
+        return m_cloud_config;
+    }
+
+    bool update_cloud_config(const CloudConfig& config) override {
+        m_cloud_config = config;
+        return true;
     }
 
 private:
     std::map<int, Patient> m_patients;
     std::map<int, std::vector<Evaluation>> m_evaluations;
+    std::vector<Appointment> m_appointments;
+    std::optional<CloudConfig> m_cloud_config;
     int m_next_patient_id;
     int m_next_eval_id;
+    int m_next_appt_id;
     bool m_is_open;
 };
 

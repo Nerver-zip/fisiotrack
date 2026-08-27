@@ -11,9 +11,9 @@ interface NavbarProps {
   onTabChange: (tab: string) => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ 
-  onMenuClick, 
-  syncStatus, 
+const Navbar: React.FC<NavbarProps> = ({
+  onMenuClick,
+  syncStatus,
   onSyncClick,
   activeTab,
   onTabChange
@@ -25,22 +25,21 @@ const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       <div className="navbar-center">
-        <button 
+        <button
           className={`nav-link ${activeTab === 'pacientes' ? 'active' : ''}`}
           onClick={() => onTabChange('pacientes')}
         >
           <Users size={20} />
           <span>Pacientes</span>
         </button>
-        <button 
+        <button
           className={`nav-link ${activeTab === 'agenda' ? 'active' : ''}`}
           onClick={() => onTabChange('agenda')}
-          disabled // Not implemented yet
         >
           <Calendar size={20} />
           <span>Agenda</span>
         </button>
-        <button 
+        <button
           className={`nav-link ${activeTab === 'estatisticas' ? 'active' : ''}`}
           onClick={() => onTabChange('estatisticas')}
           disabled // Not implemented yet
@@ -51,9 +50,12 @@ const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       <div className="navbar-right">
-        <div 
+        <div
           className="sync-wrapper"
-          style={{ cursor: syncStatus === 'erro' ? 'pointer' : 'default' }} 
+          style={{
+            cursor: (syncStatus !== 'sincronizando' && syncStatus !== 'desconectado') ? 'pointer' : 'default',
+            opacity: syncStatus === 'desconectado' ? 0.5 : 1
+          }}
           onClick={onSyncClick}
         >
           <SyncIcon state={syncStatus} size={28} />

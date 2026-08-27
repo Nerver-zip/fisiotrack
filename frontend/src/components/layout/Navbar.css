@@ -90,3 +90,22 @@
 .navbar-menu-trigger:hover {
   background-color: rgba(0, 153, 93, 0.1);
 }
+
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 1rem;
+    height: 70px;
+  }
+
+  .navbar-logo {
+    height: 50px;
+  }
+
+  .navbar-center {
+    display: none;
+  }
+
+  .navbar-right {
+    gap: 1rem;
+  }
+}

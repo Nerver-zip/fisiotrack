@@ -1,8 +1,8 @@
 import React from 'react';
-import { CheckCircle2, XCircle, RefreshCw, Cloud } from 'lucide-react';
+import { CheckCircle2, XCircle, RefreshCw, Cloud, CloudOff } from 'lucide-react';
 import './SyncIcon.css';
 
-export type SyncState = 'sincronizado' | 'pendente' | 'sincronizando' | 'erro';
+export type SyncState = 'sincronizado' | 'pendente' | 'sincronizando' | 'erro' | 'desconectado';
 
 interface SyncIconProps {
   state: SyncState;
@@ -35,12 +35,13 @@ const SyncIcon: React.FC<SyncIconProps> = ({ state, size = 48 }) => {
       case 'pendente': return 'Alterações pendentes para sincronização';
       case 'sincronizando': return 'Sincronizando com o Google Drive...';
       case 'erro': return 'Erro na sincronização. Clique para tentar novamente.';
+      case 'desconectado': return 'Backup em nuvem não configurado.';
       default: return '';
     }
   };
 
   const getOverlayIcon = () => {
-    const overlaySize = size * 0.45; // Proporção do status em relação à nuvem
+    const overlaySize = size * 0.45;
     switch (state) {
       case 'sincronizado':
         return <CheckCircle2 className="sync-icon-overlay icon-sincronizado" size={overlaySize} />;
@@ -61,10 +62,12 @@ const SyncIcon: React.FC<SyncIconProps> = ({ state, size = 48 }) => {
       style={{ width: size, height: size, position: 'relative' }}
       title={getTitle()}
     >
-      {/* Nuvem de fundo comum a todos os estados */}
-      <Cloud className="sync-icon-bg" size={size} style={{ position: 'absolute' }} />
+      {state === 'desconectado' ? (
+        <CloudOff className="sync-icon-bg icon-desconectado" size={size} style={{ position: 'absolute', opacity: 0.5 }} />
+      ) : (
+        <Cloud className="sync-icon-bg" size={size} style={{ position: 'absolute' }} />
+      )}
       
-      {/* Overlay de status no canto inferior direito */}
       <div className="overlay-wrapper" style={{ 
         position: 'absolute', 
         bottom: '0', 

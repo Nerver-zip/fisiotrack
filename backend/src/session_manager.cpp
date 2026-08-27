@@ -68,8 +68,6 @@ void SessionManager::cleanup_expired() {
 }
 
 size_t SessionManager::active_sessions_count() {
-    // É recomendado chamar cleanup_expired antes de verificar a contagem se quisermos o valor exato,
-    // mas por simplicidade e performance, faremos a limpeza aqui também antes de retornar.
     std::lock_guard<std::mutex> lock(m_mutex);
     auto now = std::chrono::steady_clock::now();
     for (auto it = m_sessions.begin(); it != m_sessions.end(); ) {

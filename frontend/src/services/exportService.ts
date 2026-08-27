@@ -3,38 +3,56 @@ import autoTable from 'jspdf-autotable';
 import { Patient } from '../types';
 import { formatDate } from '../utils';
 
+const mapPatientToExport = (patient: Patient) => ({
+  id: patient.id,
+  name: patient.name,
+  birth_date: patient.birth_date,
+  cpf: patient.cpf,
+  healthcare_id: patient.healthcare_id,
+  gender: patient.gender,
+  profession: patient.profession,
+  phone: patient.phone,
+  address: patient.address,
+  mom_name: patient.mom_name,
+  is_favorite: patient.is_favorite,
+  updated_at: patient.updated_at,
+  evaluations: patient.evaluations?.map(e => ({
+    id: e.id,
+    patient_id: e.patient_id,
+    evaluation_date: e.evaluation_date,
+    doctor: e.doctor,
+    medical_diagnosis: e.medical_diagnosis,
+    chief_complaint: e.chief_complaint,
+    history_present_illness: e.history_present_illness,
+    past_medical_history: e.past_medical_history,
+    medications: e.medications,
+    habits_activities: e.habits_activities,
+    physical_exam: e.physical_exam,
+    treatment_plan: e.treatment_plan
+  }))
+});
+
 export const exportToJSON = (patient: Patient) => {
-  const orderedPatient = {
-    id: patient.id,
-    name: patient.name,
-    birth_date: patient.birth_date,
-    cpf: patient.cpf,
-    healthcare_id: patient.healthcare_id,
-    gender: patient.gender,
-    profession: patient.profession,
-    phone: patient.phone,
-    address: patient.address,
-    mom_name: patient.mom_name,
-    evaluations: patient.evaluations?.map(e => ({
-      id: e.id,
-      patient_id: e.patient_id,
-      evaluation_date: e.evaluation_date,
-      doctor: e.doctor,
-      medical_diagnosis: e.medical_diagnosis,
-      chief_complaint: e.chief_complaint,
-      history_present_illness: e.history_present_illness,
-      past_medical_history: e.past_medical_history,
-      medications: e.medications,
-      habits_activities: e.habits_activities,
-      physical_exam: e.physical_exam,
-      treatment_plan: e.treatment_plan
-    }))
-  };
+  const orderedPatient = mapPatientToExport(patient);
 
   const dataStr = JSON.stringify(orderedPatient, null, 2);
   const blob = new Blob([dataStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const exportFileDefaultName = `paciente_${patient.name?.replace(/\s+/g, '_').toLowerCase()}.json`;
+
+  const linkElement = document.createElement('a');
+  linkElement.setAttribute('href', url);
+  linkElement.setAttribute('download', exportFileDefaultName);
+  linkElement.click();
+  URL.revokeObjectURL(url);
+};
+
+export const exportPatientsToJSON = (patients: Patient[]) => {
+  const orderedPatients = patients.map(mapPatientToExport);
+  const dataStr = JSON.stringify(orderedPatients, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const exportFileDefaultName = `clinica_export_${new Date().toISOString().split('T')[0]}.json`;
 
   const linkElement = document.createElement('a');
   linkElement.setAttribute('href', url);

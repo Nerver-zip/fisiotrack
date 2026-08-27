@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Patient } from '../types';
+import { API_BASE_URL } from '../config';
 
 interface UsePatientsProps {
   token: string | null;
@@ -12,8 +13,15 @@ export function usePatients({ token, fetchWithAuth }: UsePatientsProps) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -23,25 +31,32 @@ export function usePatients({ token, fetchWithAuth }: UsePatientsProps) {
   const fetchPatients = useCallback(async (query: string = '') => {
     if (!token) return;
     try {
-      setLoading(true);
-      const url = query 
-        ? `http://localhost:8080/api/patients?q=${encodeURIComponent(query)}`
-        : `http://localhost:8080/api/patients`;
-      
+      if (isMounted.current) setLoading(true);
+      const url = query
+        ? `${API_BASE_URL}/api/patients?q=${encodeURIComponent(query)}`
+        : `${API_BASE_URL}/api/patients`;
+
       const response = await fetchWithAuth(url);
       if (!response.ok) throw new Error('Falha ao buscar pacientes');
       const data = await response.json();
-      setPatients(data);
-      setError(null);
+
+      if (isMounted.current && token) {
+        setPatients(Array.isArray(data) ? data : []);
+        setError(null);
+      }
+      return data;
     } catch (err) {
-      if (token) setError('Erro ao conectar com o servidor.');
+      if (token && isMounted.current) setError('Erro ao conectar com o servidor.');
+      return null;
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   }, [token, fetchWithAuth]);
 
   useEffect(() => {
-    if (token) fetchPatients();
+    if (token) {
+        fetchPatients();
+    }
   }, [token, fetchPatients]);
 
   const sortedPatients = useMemo(() => {
@@ -75,7 +90,7 @@ export function usePatients({ token, fetchWithAuth }: UsePatientsProps) {
   }, [patients, sortField, sortDirection]);
 
   const totalPages = Math.ceil(sortedPatients.length / itemsPerPage);
-  
+
   const paginatedPatients = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return sortedPatients.slice(startIndex, startIndex + itemsPerPage);
@@ -98,7 +113,7 @@ export function usePatients({ token, fetchWithAuth }: UsePatientsProps) {
   };
 
   const renderSortIcon = (field: SortField) => {
-    if (sortField !== field) return '↕';
+    if (sortField !== field) return null;
     return sortDirection === 'asc' ? '↑' : '↓';
   };
 
@@ -106,7 +121,7 @@ export function usePatients({ token, fetchWithAuth }: UsePatientsProps) {
     if (!patient.id) return;
     try {
       const updatedPatient = { ...patient, is_favorite: !patient.is_favorite };
-      const response = await fetchWithAuth(`http://localhost:8080/api/patients/${patient.id}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/patients/${patient.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedPatient)

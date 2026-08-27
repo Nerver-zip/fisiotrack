@@ -7,17 +7,17 @@
 #include "session_manager.hpp"
 #include "backup_manager.hpp"
 #include <filesystem>
+#include <mutex>
 
 namespace clinic {
 
 /**
- * @brief Responsável por expor a lógica do repositório via interface HTTP/REST.
- * Segue o princípio de responsabilidade única: cuida apenas da camada web.
+ * @brief Expõe a aplicação da clínica na rede local.
  */
 class ApiServer {
 public:
     explicit ApiServer(std::shared_ptr<PatientRepository> repo);
-    explicit ApiServer(std::shared_ptr<PatientRepository> repo, const std::filesystem::path& root_path);
+    ApiServer(std::shared_ptr<PatientRepository> repo, const std::filesystem::path& root_path);
     
     void listen(const std::string& host, int port);
     void stop();
@@ -31,6 +31,8 @@ private:
     std::shared_ptr<PatientRepository> m_repo;
     SessionManager m_session_manager;
     BackupManager m_backup_manager;
+    std::filesystem::path m_root_path;
+    std::mutex m_repository_mutex;
 };
 
 } // namespace clinic

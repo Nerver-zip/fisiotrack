@@ -23,7 +23,7 @@ public:
         std::string error_message;
     };
 
-    explicit BackupManager(std::shared_ptr<PatientRepository> repo) : m_repo(repo) {}
+    explicit BackupManager(std::shared_ptr<PatientRepository> repo) : m_repo(std::move(repo)) {}
 
     void set_project_root(const std::filesystem::path& root) {
         m_project_root = root;
@@ -31,30 +31,41 @@ public:
 
     /**
      * @brief Executa o backup local e prepara para upload.
+     * Estratégia de rotação: 30 dias (um backup por dia do mês).
      * @return Caminho do arquivo gerado ou string vazia se falhar.
      */
     BackupResult run_backup() {
         BackupResult result;
         try {
-            // 1. Calcular semana do mês (1 a 4)
+            // 1. Calcular dia do mês (1 a 31) para rotação diária de 30 dias
             std::time_t now = std::time(nullptr);
             std::tm* ltm = std::localtime(&now);
-            int day = ltm->tm_mday;
-            int week = ((day - 1) / 7) + 1;
-            if (week > 4) week = 4; // Agrupa dias 29-31 na semana 4
+            int day = ltm->tm_mday; // 1 a 31
 
-            // 2. Garantir diretório temporário de backups na raiz do projeto
+            // 2. Manter os backups da instalação em um diretório local dedicado.
             std::filesystem::path backup_dir = m_project_root / "database" / "backups";
             std::filesystem::create_directories(backup_dir);
 
-            std::string filename = "backup_semana_" + std::to_string(week) + ".db";
+            std::string filename = "backup_dia_" + std::to_string(day) + ".db";
             std::filesystem::path target = backup_dir / filename;
 
             // 3. Executar o VACUUM INTO
             if (m_repo->create_backup(target.string())) {
+                std::filesystem::permissions(
+                    target,
+                    std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+                    std::filesystem::perm_options::replace
+                );
                 result.local_success = true;
                 result.local_path = target.string();
-                
+
+                // Um backup local completo não depende de serviços externos.
+                auto cloud_opt = m_repo->get_cloud_config();
+                if (!cloud_opt || !cloud_opt->is_enabled || cloud_opt->refresh_token.empty()) {
+                    m_repo->get_database()->add_audit_log("BACKUP_LOCAL_SUCCESS", 0, "Created: " + filename, "system");
+                    return result;
+                }
+
                 // 4. Disparar upload para GDrive via script Python usando caminhos absolutos
                 // Nota: Usamos .venv (com ponto) conforme solicitado
                 std::filesystem::path python_exe = m_project_root / ".venv" / "bin" / "python3";
@@ -65,8 +76,14 @@ public:
                     return result;
                 }
 
-                std::string cmd = python_exe.string() + " " + script_path.string() + 
-                                 " \"" + target.string() + "\" \"" + filename + "\" 2>&1";
+                std::string cmd = shell_quote(python_exe.string()) + " " + shell_quote(script_path.string()) +
+                                  " " + shell_quote(target.string()) + " " + shell_quote(filename) +
+                                  " --refresh_token " + shell_quote(cloud_opt->refresh_token);
+                if (!cloud_opt->folder_id.empty()) {
+                    cmd += " --folder_id " + shell_quote(cloud_opt->folder_id);
+                }
+
+                cmd += " 2>&1";
 
                 std::array<char, 256> buffer{};
                 std::string script_output;
@@ -110,6 +127,14 @@ public:
     }
 
 private:
+    static std::string shell_quote(const std::string& value) {
+        std::string quoted = "'";
+        for (const char ch : value) {
+            quoted += ch == '\'' ? "'\\''" : std::string(1, ch);
+        }
+        return quoted + "'";
+    }
+
     std::shared_ptr<PatientRepository> m_repo;
     std::filesystem::path m_project_root;
 };

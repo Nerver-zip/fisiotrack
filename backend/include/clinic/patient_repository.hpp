@@ -8,6 +8,9 @@
 #include <string>
 #include <map>
 #include <algorithm>
+#include <array>
+#include <openssl/crypto.h>
+#include <openssl/sha.h>
 
 #include <filesystem>
 
@@ -33,7 +36,15 @@ public:
 
     bool authenticate(const std::string& password) {
         if (m_db_path.empty()) return false;
-        return m_db->open(m_db_path, password);
+        const auto verifier = password_verifier(password);
+        if (m_db->is_open()) {
+            return m_has_password_verifier &&
+                CRYPTO_memcmp(verifier.data(), m_password_verifier.data(), verifier.size()) == 0;
+        }
+        if (!m_db->open(m_db_path, password)) return false;
+        m_password_verifier = verifier;
+        m_has_password_verifier = true;
+        return true;
     }
 
     bool is_authenticated() const {
@@ -42,6 +53,8 @@ public:
 
     void logout() {
         m_db->close();
+        m_password_verifier.fill(0);
+        m_has_password_verifier = false;
     }
 
     bool add_patient(const Patient& p, const std::string& user_info = "system") { 
@@ -54,6 +67,7 @@ public:
 
     std::optional<Patient> get_patient(int id) { return m_db->get_patient(id); }
     std::vector<Patient> get_all_patients() { return m_db->get_all_patients(); }
+    std::vector<Patient> get_all_patients_full() { return m_db->get_all_patients_full(); }
     std::vector<Patient> search_patients(const std::string& query) { return m_db->search_patients(query); }
 
     bool update_patient(const Patient& p, const std::string& user_info = "system") { 
@@ -149,6 +163,39 @@ public:
         return success;
     }
 
+    // --- Agendamentos ---
+    bool add_appointment(const Appointment& a, const std::string& user_info = "system") {
+        bool success = m_db->add_appointment(a);
+        if (success) {
+            m_db->add_audit_log("CREATE_APPOINTMENT", 0, "Patient: " + a.patient_name + " Date: " + a.appointment_date, user_info);
+        }
+        return success;
+    }
+
+    std::vector<Appointment> get_appointments(const std::string& date) {
+        return m_db->get_appointments(date);
+    }
+
+    std::vector<Appointment> get_patient_appointments(int patient_id) {
+        return m_db->get_patient_appointments(patient_id);
+    }
+
+    bool update_appointment(const Appointment& a, const std::string& user_info = "system") {
+        bool success = m_db->update_appointment(a);
+        if (success && a.id) {
+            m_db->add_audit_log("UPDATE_APPOINTMENT", *a.id, "Patient: " + a.patient_name + " Date: " + a.appointment_date, user_info);
+        }
+        return success;
+    }
+
+    bool delete_appointment(int id, const std::string& user_info = "system") {
+        bool success = m_db->delete_appointment(id);
+        if (success) {
+            m_db->add_audit_log("DELETE_APPOINTMENT", id, "", user_info);
+        }
+        return success;
+    }
+
     std::vector<AuditLog> get_audit_logs(int limit = 100) {
         return m_db->get_audit_logs(limit);
     }
@@ -157,13 +204,33 @@ public:
         return m_db->create_backup(target_path);
     }
 
+    std::optional<CloudConfig> get_cloud_config() {
+        return m_db->get_cloud_config();
+    }
+
+    bool update_cloud_config(const CloudConfig& config, const std::string& user_info = "system") {
+        bool success = m_db->update_cloud_config(config);
+        if (success) {
+            m_db->add_audit_log("UPDATE_CLOUD_CONFIG", 0, "Provider: " + config.provider, user_info);
+        }
+        return success;
+    }
+
     IDatabase* get_database() {
         return m_db.get();
     }
 
 private:
+    static std::array<unsigned char, SHA256_DIGEST_LENGTH> password_verifier(const std::string& password) {
+        std::array<unsigned char, SHA256_DIGEST_LENGTH> digest{};
+        SHA256(reinterpret_cast<const unsigned char*>(password.data()), password.size(), digest.data());
+        return digest;
+    }
+
     std::unique_ptr<IDatabase> m_db;
     std::string m_db_path;
+    std::array<unsigned char, SHA256_DIGEST_LENGTH> m_password_verifier{};
+    bool m_has_password_verifier = false;
 };
 
 } // namespace clinic
