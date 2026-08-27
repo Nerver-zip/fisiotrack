@@ -1,55 +1,50 @@
-# 🌐 API FisioTrack — Referência de Endpoints
+# API FisioTrack
 
-A API é local e utiliza JSON para comunicação. O servidor roda por padrão em `http://localhost:8080`.
+O backend serve a interface React e a API no mesmo endereço. Na instalação LAN padrão, a base é `http://IP-DO-SERVIDOR:8080`; os exemplos abaixo usam caminhos relativos.
 
-## 👥 Pacientes
+Todas as rotas de dados exigem `Authorization: Bearer <token>`. Somente status, configuração inicial e login são públicos dentro da rede local.
 
-### 1. Listar Pacientes
-`GET /api/patients`
-- **Query Params:** `q` (opcional) - Filtra por nome.
-- **Resposta:** Lista de objetos `Patient` (contém apenas os dados da última avaliação para o dashboard).
+## Autenticação
 
-### 2. Detalhes do Paciente
-`GET /api/patients/:id`
-- **Resposta:** Objeto `Patient` completo, incluindo histórico de `evaluations` e lista de `phone`.
+- `GET /api/auth/status`: retorna `{"initialized": boolean}`.
+- `POST /api/auth/setup`: cria o banco na primeira execução. Corpo: `{"password": "..."}`. A senha deve ter oito ou mais caracteres, maiúscula, minúscula e número.
+- `POST /api/login`: abre uma sessão. Corpo: `{"password": "..."}`.
+- `POST /api/logout`: invalida a sessão atual. O banco fecha quando não resta nenhuma sessão ativa.
 
-### 3. Criar Paciente
-`POST /api/patients`
-- **Corpo:** Objeto `Patient`. Pode conter uma lista inicial de `evaluations` e `phone`.
-- **Resposta:** `201 Created` com `{"status": "ok"}`.
+## Pacientes
 
-### 4. Atualizar Paciente (Parcial)
-`PUT /api/patients/:id`
-- **Corpo:** Objeto JSON contendo apenas os campos que deseja alterar (ex: `{"address": "Nova Rua"}`).
-- **Regra:** Realiza um *merge* com os dados existentes. Lista de telefones é substituída se enviada.
-- **Resposta:** `200 OK`.
+- `GET /api/patients?q=nome`: lista ou busca pacientes.
+- `GET /api/patients/export`: retorna os prontuários completos para exportação.
+- `GET /api/patients/:id`: retorna um prontuário completo.
+- `POST /api/patients`: cadastra um paciente.
+- `PUT /api/patients/:id`: atualiza parcialmente um paciente.
+- `DELETE /api/patients/:id`: exclui o paciente e seus dados dependentes.
+- `POST /api/patients/import`: mescla um array de pacientes pelo nome.
 
-### 5. Importar Pacientes (JSON)
-`POST /api/patients/import`
-- **Corpo:** Array de objetos `Patient`.
-- **Regra de Negócio:** Se múltiplos objetos possuírem o mesmo `name`, suas `evaluations` e `phone` serão mesclados em um único registro.
-- **Resposta:** `201 Created` com estatísticas da importação.
+## Avaliações
 
-### 6. Excluir Paciente
-`DELETE /api/patients/:id`
-- **Resposta:** `200 OK` com `{"status": "deleted"}`.
+- `GET /api/patients/:id/evaluations`: lista o histórico clínico.
+- `POST /api/patients/:id/evaluations`: adiciona uma avaliação.
+- `PUT /api/patients/:id/evaluations/:evaluation_id`: atualiza uma avaliação.
+- `DELETE /api/patients/:id/evaluations/:evaluation_id`: exclui uma avaliação.
 
-## 📋 Avaliações
+## Agenda e sessões
 
-### 1. Adicionar Avaliação
-`POST /api/patients/:id/evaluations`
-- **Corpo:** Objeto `Evaluation`.
-- **Resposta:** `201 Created`.
+- `GET /api/appointments?date=YYYY-MM-DD`: lista o dia selecionado.
+- `POST /api/appointments`: cria um agendamento.
+- `PUT /api/appointments/:id`: atualiza horário, vínculo, notas ou estado.
+- `DELETE /api/appointments/:id`: exclui um agendamento.
+- `GET /api/patients/:id/appointments`: retorna o histórico de sessões do paciente.
 
-### 2. Listar Histórico
-`GET /api/patients/:id/evaluations`
-- **Resposta:** Array de `Evaluation` ordenado por data descendente.
+## Auditoria e backup
 
-### 3. Atualizar Avaliação
-`PUT /api/patients/:id/evaluations/:evaluation_id`
-- **Corpo:** Objeto `Evaluation` completo ou parcial.
-- **Resposta:** `200 OK`.
+- `GET /api/audit`: lista as alterações mais recentes.
+- `POST /api/backup`: cria um backup local e, quando configurado, envia a mesma cópia criptografada ao Google Drive.
+- `GET /api/backup/config`: lê a configuração sem expor o refresh token.
+- `POST /api/backup/config`: atualiza ativação e pasta do Google Drive.
+- `GET /api/backup/auth/url`: inicia a autorização OAuth no computador servidor.
+- `POST /api/backup/auth/callback`: conclui a autorização OAuth.
 
-### 4. Excluir Avaliação
-`DELETE /api/patients/:id/evaluations/:evaluation_id`
-- **Resposta:** `200 OK` com `{"status": "deleted"}`.
+## Acesso pela LAN
+
+O build distribuído usa a mesma origem da página e não depende de um endereço externo. O CORS de desenvolvimento aceita apenas loopback ou uma origem cujo host seja o mesmo do backend; origens arbitrárias não recebem permissão.

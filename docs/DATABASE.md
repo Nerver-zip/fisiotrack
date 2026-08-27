@@ -1,53 +1,41 @@
-# 🗄️ Documentação do Banco de Dados (SQLite + SQLCipher)
+# Banco de dados SQLCipher
 
-O sistema utiliza um banco de dados relacional criptografado para armazenar dados cadastrais e clínicos.
+Uma instalação utiliza um banco criptografado em `database/patients.db`. A senha mestre é a chave do SQLCipher e não é gravada no disco. Durante a execução, apenas um verificador SHA-256 mantido em memória permite abrir sessões adicionais sem reabrir a conexão; ele é apagado quando a última sessão encerra.
 
-## 📌 Esquema de Tabelas
+## Tabelas
 
-### 1. `patients` (Dados Cadastrais)
-Armazena as informações básicas e imutáveis (ou raramente alteradas) do paciente.
+### `patients`
 
-| Coluna | Tipo | Descrição |
-| :--- | :--- | :--- |
-| `id` | INTEGER | Chave primária (Autoincrement) |
-| `healthcare_id` | TEXT | ID do Convênio |
-| `name` | TEXT | Nome completo do paciente (Obrigatório) |
-| `mom_name` | TEXT | Nome da mãe |
-| `birth_date` | TEXT | Data de nascimento (YYYY-MM-DD) |
-| `cpf` | TEXT | CPF formatado or apenas números |
-| `gender` | TEXT | Sexo (Masculino, Feminino, Outro) |
-| `address` | TEXT | Endereço completo |
-| `profession` | TEXT | Profissão atual |
+Dados cadastrais, favorito, data da última alteração e identificadores do paciente.
 
-### 2. `patient_phones` (Telefones)
-Relacionamento N:1 com a tabela `patients`.
+### `patient_phones`
 
-| Coluna | Tipo | Descrição |
-| :--- | :--- | :--- |
-| `id` | INTEGER | Chave primária |
-| `patient_id` | INTEGER | FK para `patients(id)` (CASCADE DELETE) |
-| `phone` | TEXT | Número de telefone |
+Telefones associados por `patient_id`, removidos em cascata com o paciente.
 
-### 3. `evaluations` (Histórico Clínico)
-Armazena as entradas clínicas (fichas de avaliação) ao longo do tempo. Relacionamento N:1 com `patients`.
+### `evaluations`
 
-| Coluna | Tipo | Descrição |
-| :--- | :--- | :--- |
-| `id` | INTEGER | Chave primária |
-| `patient_id` | INTEGER | FK para `patients(id)` (CASCADE DELETE) |
-| `evaluation_date` | TEXT | Data da avaliação (YYYY-MM-DD) |
-| `doctor` | TEXT | Médico solicitante |
-| `medical_diagnosis` | TEXT | Diagnóstico médico |
-| `chief_complaint` | TEXT | Queixa principal |
-| `history_present_illness`| TEXT | HDA (História da Doença Atual) |
-| `past_medical_history` | TEXT | HPP (História Patológica Pregressa) |
-| `medications` | TEXT | Medicamentos em uso |
-| `habits_activities` | TEXT | Atividades e hábitos |
-| `physical_exam` | TEXT | Exame físico / complementares |
-| `treatment_plan` | TEXT | Plano de tratamento |
+Histórico clínico associado por `patient_id`, incluindo diagnóstico, queixa, antecedentes, exame e plano de tratamento.
 
-## 🔒 Segurança
-- **Criptografia:** SQLCipher com AES-256.
-- **Arquitetura Zero-Knowledge:** A senha master do usuário é a própria chave do banco. O sistema não armazena hashes de senha no disco. A validação do login ocorre tentando ler a tabela `sqlite_master` após aplicar a chave; se falhar, o acesso é negado.
-- **Integridade:** `PRAGMA foreign_keys = ON` ativado em todas as sessões.
-- **Transações:** Operações de escrita complexas (como `add_patient`) utilizam `BEGIN TRANSACTION` para garantir atomicidade.
+### `appointments`
+
+Agenda da clínica, com vínculo opcional ao paciente, data, horário, duração, notas e estado. Agendamentos concluídos compõem a contagem e o histórico de sessões.
+
+### `audit_logs`
+
+Registro de criação, atualização, exclusão, importação, agenda, backup e configuração.
+
+### `cloud_config`
+
+Configuração única e opcional do Google Drive. O refresh token permanece dentro do banco criptografado.
+
+## Integridade e concorrência
+
+- `PRAGMA foreign_keys = ON` protege os relacionamentos.
+- `PRAGMA journal_mode = WAL` e timeout de cinco segundos reduzem contenção.
+- O servidor serializa as operações autenticadas sobre a conexão compartilhada, evitando que transações de computadores diferentes se intercalem.
+- Escritas compostas usam transações para atomicidade.
+- O backup usa a API do SQLite para produzir uma cópia consistente.
+
+## Importação de uma instalação existente
+
+Quando o banco principal não existe, o servidor procura um único `.db` dentro de `database/`, ignorando `backups/`. O arquivo e eventuais companheiros `-wal` e `-shm` são copiados; a origem permanece intacta. Com mais de um candidato, a inicialização falha até `DB_MIGRATION_SOURCE` selecionar explicitamente a origem.
