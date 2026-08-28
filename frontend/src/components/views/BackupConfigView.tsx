@@ -82,7 +82,11 @@ const BackupConfigView: React.FC<BackupConfigViewProps> = ({ fetchWithAuth }) =>
         // Redirecionar a aba atual para o Google (mais confiável que window.open)
         window.location.href = url;
       } else {
-        setMessage({ type: 'error', text: 'Erro ao obter URL de autenticação do backend.' });
+        const errorData = await res.json().catch(() => ({}));
+        setMessage({
+          type: 'error',
+          text: errorData.error || 'Erro ao obter URL de autenticação do backend.'
+        });
       }
     } catch (err) {
       setMessage({ type: 'error', text: 'Falha ao iniciar autenticação Google.' });

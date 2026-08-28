@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   backend_tests:
     name: Backend Tests (C++)
@@ -41,7 +44,7 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v6
       with:
-        node-version: '20'
+        node-version: '24'
         cache: npm
         cache-dependency-path: frontend/package-lock.json
 
@@ -56,3 +59,25 @@ jobs:
     - name: Build Frontend
       working-directory: ./frontend
       run: npm run build
+
+  docker_tests:
+    name: Docker Build and Smoke Test
+    runs-on: ubuntu-latest
+    needs: [backend_tests, frontend_tests]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+
+    - name: Validate Compose files
+      env:
+        GOOGLE_OAUTH_CLIENT_SECRETS_FILE: ./deploy/client_secrets.example.json
+      run: |
+        docker compose config --quiet
+        docker compose -f compose.yaml -f compose.google-drive.yaml config --quiet
+
+    - name: Build image
+      run: docker build --tag fisiotrack:ci .
+
+    - name: Run container smoke test
+      run: ./scripts/docker_smoke_test.sh fisiotrack:ci

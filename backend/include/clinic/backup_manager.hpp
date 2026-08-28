@@ -6,6 +6,7 @@
 #include <iostream>
 #include <array>
 #include <cstdio>
+#include <cstdlib>
 #include <sys/wait.h>
 #include "patient_repository.hpp"
 
@@ -66,9 +67,14 @@ public:
                     return result;
                 }
 
-                // 4. Disparar upload para GDrive via script Python usando caminhos absolutos
-                // Nota: Usamos .venv (com ponto) conforme solicitado
-                std::filesystem::path python_exe = m_project_root / ".venv" / "bin" / "python3";
+                // 4. Disparar upload para GDrive via script Python usando caminhos absolutos.
+                std::filesystem::path python_exe;
+                if (const char* configured_python = std::getenv("GDRIVE_PYTHON")) {
+                    python_exe = configured_python;
+                    if (python_exe.is_relative()) python_exe = m_project_root / python_exe;
+                } else {
+                    python_exe = m_project_root / ".venv" / "bin" / "python3";
+                }
                 std::filesystem::path script_path = m_project_root / "scripts" / "gdrive_upload.py";
 
                 if (!std::filesystem::exists(python_exe)) {

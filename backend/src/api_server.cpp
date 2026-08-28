@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <cctype>
+#include <cstdlib>
 
 namespace clinic {
 
@@ -36,6 +37,21 @@ bool password_is_strong(const std::string& password) {
     return lower && upper && digit;
 }
 
+std::filesystem::path oauth_secrets_path(const std::filesystem::path& root) {
+    if (const char* configured_path = std::getenv("GOOGLE_OAUTH_CLIENT_SECRETS")) {
+        std::filesystem::path path(configured_path);
+        return path.is_relative() ? root / path : path;
+    }
+    return root / "config" / "client_secrets.json";
+}
+
+std::string oauth_redirect_uri() {
+    if (const char* configured_uri = std::getenv("OAUTH_REDIRECT_URI")) {
+        return configured_uri;
+    }
+    return "http://127.0.0.1:8080/oauth-callback";
+}
+
 } // namespace
 
 ApiServer::ApiServer(std::shared_ptr<PatientRepository> repo)
@@ -57,9 +73,9 @@ ApiServer::ApiServer(std::shared_ptr<PatientRepository> repo, const std::filesys
     }
 }
 
-void ApiServer::listen(const std::string& host, int port) {
+bool ApiServer::listen(const std::string& host, int port) {
     std::cout << "FisioTrack disponível em http://" << host << ":" << port << std::endl;
-    m_svr.listen(host.c_str(), port);
+    return m_svr.listen(host.c_str(), port);
 }
 
 void ApiServer::stop() {
@@ -242,11 +258,12 @@ void ApiServer::setup_routes() {
     }));
 
     m_svr.Get("/api/backup/auth/url", wrap_auth([this]([[maybe_unused]] const httplib::Request& req, httplib::Response& res, [[maybe_unused]] std::shared_ptr<PatientRepository> repo, [[maybe_unused]] const std::string& actor) {
-        std::filesystem::path secrets_path = m_root_path / "config" / "client_secrets.json";
+        const auto secrets_path = oauth_secrets_path(m_root_path);
         std::ifstream f(secrets_path);
         if (!f.is_open()) {
             std::cerr << "ERRO: Nao foi possivel abrir " << secrets_path << std::endl;
             res.status = 500;
+            res.set_content(json({{"error", "Credencial OAuth do Google não encontrada."}}).dump(), "application/json");
             return;
         }
         try {
@@ -254,16 +271,14 @@ void ApiServer::setup_routes() {
             if (!secrets.contains("installed")) {
                 std::cerr << "ERRO: use credenciais OAuth do tipo aplicativo para computador" << std::endl;
                 res.status = 500;
+                res.set_content(json({{"error", "Use uma credencial OAuth do tipo aplicativo para computador."}}).dump(), "application/json");
                 return;
             }
 
             std::string client_id = secrets["installed"]["client_id"];
 
             std::string scope = "https://www.googleapis.com/auth/drive.file";
-            std::string redirect_uri = "http://localhost:8080/oauth-callback";
-            if (const char* env_redirect = std::getenv("OAUTH_REDIRECT_URI")) {
-                redirect_uri = env_redirect;
-            }
+            const std::string redirect_uri = oauth_redirect_uri();
 
             std::string auth_url = "https://accounts.google.com/o/oauth2/v2/auth?"
                                    "client_id=" + client_id +
@@ -277,6 +292,7 @@ void ApiServer::setup_routes() {
         } catch (const std::exception& e) {
             std::cerr << "ERRO ao processar JSON: " << e.what() << std::endl;
             res.status = 500;
+            res.set_content(json({{"error", "Não foi possível ler a credencial OAuth."}}).dump(), "application/json");
         }
     }));
 
@@ -285,7 +301,12 @@ void ApiServer::setup_routes() {
             auto j_req = json::parse(req.body);
             std::string code = j_req.at("code");
 
-            std::ifstream f(m_root_path / "config" / "client_secrets.json");
+            std::ifstream f(oauth_secrets_path(m_root_path));
+            if (!f.is_open()) {
+                res.status = 500;
+                res.set_content(json({{"error", "Credencial OAuth do Google não encontrada."}}).dump(), "application/json");
+                return;
+            }
             auto secrets = json::parse(f);
 
             if (!secrets.contains("installed")) {
@@ -296,10 +317,7 @@ void ApiServer::setup_routes() {
             std::string client_id = secrets["installed"]["client_id"];
             std::string client_secret = secrets["installed"]["client_secret"];
 
-            std::string redirect_uri = "http://localhost:8080/oauth-callback";
-            if (const char* env_redirect = std::getenv("OAUTH_REDIRECT_URI")) {
-                redirect_uri = env_redirect;
-            }
+            const std::string redirect_uri = oauth_redirect_uri();
 
             httplib::Client cli("https://oauth2.googleapis.com");
             httplib::Params params;

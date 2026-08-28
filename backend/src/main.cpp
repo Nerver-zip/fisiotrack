@@ -4,6 +4,11 @@
 #include <cstdlib>
 #include <string>
 #include <filesystem>
+#include <atomic>
+#include <cerrno>
+#include <csignal>
+#include <thread>
+#include <pthread.h>
 #include <sys/stat.h>
 #include "../include/clinic/sqlite_database.hpp"
 #include "../include/clinic/patient_repository.hpp"
@@ -16,6 +21,12 @@ using namespace clinic;
  * @brief Tenta encontrar a raiz do projeto procurando pelo arquivo .env
  */
 std::filesystem::path find_project_root() {
+    if (const char* configured_root = std::getenv("FISIOTRACK_ROOT")) {
+        std::filesystem::path root(configured_root);
+        if (root.is_relative()) root = std::filesystem::absolute(root);
+        return root;
+    }
+
     std::filesystem::path current = std::filesystem::current_path();
     while (true) {
         if (std::filesystem::exists(current / ".env") ||
@@ -87,8 +98,35 @@ int main() {
     std::cout << "📂 Project Root: " << root << std::endl;
     std::cout << "📁 Banco de dados: " << db_path << std::endl;
 
-    ApiServer server(repo, root);
-    server.listen(host, port);
+    sigset_t shutdown_signals;
+    sigemptyset(&shutdown_signals);
+    sigaddset(&shutdown_signals, SIGINT);
+    sigaddset(&shutdown_signals, SIGTERM);
+    pthread_sigmask(SIG_BLOCK, &shutdown_signals, nullptr);
 
-    return 0;
+    ApiServer server(repo, root);
+    std::atomic<bool> server_finished{false};
+    bool listen_succeeded = false;
+    std::thread server_thread([&]() {
+        listen_succeeded = server.listen(host, port);
+        server_finished = true;
+    });
+
+    while (!server_finished) {
+        const timespec wait_interval{1, 0};
+        const int received_signal = sigtimedwait(&shutdown_signals, nullptr, &wait_interval);
+        if (received_signal == SIGINT || received_signal == SIGTERM) {
+            std::cout << "Encerrando FisioTrack com segurança..." << std::endl;
+            server.stop();
+            break;
+        }
+        if (received_signal == -1 && errno != EAGAIN && errno != EINTR) {
+            server.stop();
+            break;
+        }
+    }
+
+    if (server_thread.joinable()) server_thread.join();
+
+    return listen_succeeded ? 0 : 1;
 }

@@ -1,0 +1,11 @@
+services:
+  fisiotrack:
+    environment:
+      GOOGLE_OAUTH_CLIENT_SECRETS: /run/secrets/google_oauth_client.json
+    secrets:
+      - source: google_oauth_client
+        target: google_oauth_client.json
+
+secrets:
+  google_oauth_client:
+    file: "${GOOGLE_OAUTH_CLIENT_SECRETS_FILE:-./config/client_secrets.json}"

@@ -43,6 +43,28 @@ describe('BackupConfigView Component', () => {
     });
   });
 
+  test('deve exibir o erro específico retornado ao iniciar OAuth', async () => {
+    mockFetchWithAuth
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ provider: 'google_drive', folder_id: '', is_enabled: false, has_token: false }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: 'Use uma credencial OAuth do tipo aplicativo para computador.' }),
+      });
+
+    await act(async () => {
+      render(<BackupConfigView fetchWithAuth={mockFetchWithAuth} />);
+    });
+
+    fireEvent.click(await screen.findByText(/Conectar Conta do Google/i));
+
+    await waitFor(() => {
+      expect(screen.getByText(/aplicativo para computador/i)).toBeInTheDocument();
+    });
+  });
+
   test('deve salvar alterações no folder_id', async () => {
     mockFetchWithAuth
       .mockResolvedValueOnce({

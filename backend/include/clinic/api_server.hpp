@@ -19,7 +19,7 @@ public:
     explicit ApiServer(std::shared_ptr<PatientRepository> repo);
     ApiServer(std::shared_ptr<PatientRepository> repo, const std::filesystem::path& root_path);
     
-    void listen(const std::string& host, int port);
+    bool listen(const std::string& host, int port);
     void stop();
 
 private:

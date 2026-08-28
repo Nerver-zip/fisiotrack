@@ -30,7 +30,7 @@ O sistema opera exclusivamente na rede local. Não encaminhe a porta 8080 no rot
 ## Pré-requisitos
 
 - CMake 3.20+, compilador C++20, OpenSSL e SQLCipher.
-- Node.js 20+ e npm.
+- Node.js 24 LTS e npm.
 - Python 3 e as dependências de `requirements.txt` apenas para Google Drive.
 
 No Arch Linux:
@@ -67,6 +67,22 @@ sudo apt install build-essential cmake libssl-dev libsqlcipher-dev nodejs npm py
 
 Depois do primeiro build, `./runlan.sh start` inicia sem recompilar. A primeira abertura solicita a criação da senha mestre; as demais solicitam apenas essa senha.
 
+## Execução com Docker
+
+Docker é uma alternativa ao modo nativo e mantém frontend, API, SQLCipher e uploader do Google Drive no mesmo container. Para construir e iniciar:
+
+```bash
+docker compose up --detach --build
+```
+
+Para incluir a credencial OAuth do Google Drive:
+
+```bash
+docker compose -f compose.yaml -f compose.google-drive.yaml up --detach --build
+```
+
+Não execute `runlan.sh` e Docker simultaneamente sobre o mesmo banco. Consulte [docs/DOCKER.md](docs/DOCKER.md) para configuração da LAN, migração, atualização, backup e restauração do volume.
+
 ## Banco existente
 
 Se `database/patients.db` ainda não existir, a inicialização procura um único arquivo `.db` sob `database/`, ignorando backups. Quando encontra exatamente um, copia o banco e seus arquivos WAL/SHM para o local principal e preserva a origem.
@@ -85,13 +101,13 @@ Os backups locais ficam em `database/backups/` e continuam criptografados. Para 
 
 1. Execute `./setup_backup.sh`.
 2. Coloque credenciais OAuth do tipo aplicativo para computador em `config/client_secrets.json`.
-3. No navegador do próprio computador servidor, abra `http://localhost:8080`, entre no FisioTrack e vincule o Google Drive em Ajustes.
+3. No navegador do próprio computador servidor, abra `http://127.0.0.1:8080`, entre no FisioTrack e vincule o Google Drive em Ajustes.
 
 A integração com o Google Drive realiza somente conexões de saída; ela não publica o FisioTrack na internet.
 
 ## Desenvolvimento e testes
 
-O menu de desenvolvimento continua disponível:
+Menu de desenvolvimento:
 
 ```bash
 ./rundev.sh

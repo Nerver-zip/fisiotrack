@@ -1,0 +1,40 @@
+name: fisiotrack
+
+services:
+  fisiotrack:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fisiotrack:local
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${FISIOTRACK_BIND_ADDRESS:-0.0.0.0}:${FISIOTRACK_PORT:-8080}:8080"
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: 8080
+      DB_REAL_PATH: /app/database/patients.db
+      DB_TYPE: real
+      FISIOTRACK_ROOT: /app
+      GDRIVE_PYTHON: /app/.venv/bin/python3
+      OAUTH_REDIRECT_URI: "${OAUTH_REDIRECT_URI:-http://127.0.0.1:8080/oauth-callback}"
+    volumes:
+      - fisiotrack_data:/app/database
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  fisiotrack_data:
+    name: fisiotrack_data

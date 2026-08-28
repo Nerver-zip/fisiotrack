@@ -19,7 +19,10 @@ MAX_RETRIES = int(os.getenv('GDRIVE_UPLOAD_RETRIES', '3'))
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-DEFAULT_CLIENT_SECRETS = os.path.join(PROJECT_ROOT, 'config', 'client_secrets.json')
+DEFAULT_CLIENT_SECRETS = os.getenv(
+    'GOOGLE_OAUTH_CLIENT_SECRETS',
+    os.path.join(PROJECT_ROOT, 'config', 'client_secrets.json')
+)
 
 def get_gdrive_service(args):
     client_id = args.client_id

@@ -2,7 +2,13 @@ cmake_minimum_required(VERSION 3.20)
 cmake_policy(SET CMP0135 NEW)
 project(FisioTrack VERSION 0.1.0 LANGUAGES C CXX)
 
-enable_testing()
+include(CTest)
+
+option(
+    FISIOTRACK_NATIVE_OPTIMIZATIONS
+    "Otimiza o binário para a CPU da máquina de build"
+    OFF
+)
 
 # --- Padrão C++ ---
 
@@ -25,9 +31,12 @@ add_compile_options(
 -Wimplicit-fallthrough
 )
 
-# Debug vs Release
+# Debug vs Release. Imagens distribuíveis precisam funcionar em CPUs diferentes.
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+if(FISIOTRACK_NATIVE_OPTIMIZATIONS)
+    string(APPEND CMAKE_CXX_FLAGS_RELEASE " -march=native")
+endif()
 
 else()
 add_compile_options(/W4 /permissive- /utf-8)
@@ -40,14 +49,15 @@ find_package(Threads REQUIRED)
 
 include(FetchContent)
 
-# --- GoogleTest ---
-
-FetchContent_Declare(
-googletest
-URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz
-)
-set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
+if(BUILD_TESTING)
+    # --- GoogleTest ---
+    FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz
+    )
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+endif()
 
 # --- JSON ---
 
@@ -117,27 +127,28 @@ target_link_libraries(fisio_track_server PRIVATE
     clinic_lib
 )
 
-# --- Testes ---
+if(BUILD_TESTING)
+    # --- Testes ---
+    add_executable(unit_tests
+        tests/test_patient_crud.cpp
+        tests/test_patient_repository.cpp
+        tests/test_database_disk_integrity.cpp
+        tests/test_api_server.cpp
+        tests/test_import_logic.cpp
+        tests/test_session_manager.cpp
+        tests/test_audit_logs.cpp
+        tests/test_backup_api.cpp
+        tests/test_patients_features.cpp
+        tests/test_lan_access.cpp
+        tests/test_database_migration.cpp
+        tests/test_appointments.cpp
+    )
 
-add_executable(unit_tests
-    tests/test_patient_crud.cpp
-    tests/test_patient_repository.cpp
-    tests/test_database_disk_integrity.cpp
-    tests/test_api_server.cpp
-    tests/test_import_logic.cpp
-    tests/test_session_manager.cpp
-    tests/test_audit_logs.cpp
-    tests/test_backup_api.cpp
-    tests/test_patients_features.cpp
-    tests/test_lan_access.cpp
-    tests/test_database_migration.cpp
-    tests/test_appointments.cpp
-)
+    target_link_libraries(unit_tests PRIVATE
+        clinic_lib
+        gtest_main
+        Threads::Threads
+    )
 
-target_link_libraries(unit_tests PRIVATE
-    clinic_lib
-    gtest_main
-    Threads::Threads
-)
-
-add_test(NAME unit_tests COMMAND unit_tests)
+    add_test(NAME unit_tests COMMAND unit_tests)
+endif()
